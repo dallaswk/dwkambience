@@ -38,5 +38,15 @@ Config.Editor = {
     spawnDistance = 6.0,
 }
 
+Config.Playback = {
+    command = 'cutscene',
+    preloadMs = 4000,  -- margen entre la orden y t = 0 para cargar modelos con la pantalla en negro
+    fadeMs = 500,
+    skipControl = 177, -- INPUT_CELLPHONE_CANCEL (Retroceso)
+}
+
+-- Overlay de depuración de reproducción: setr dwkambience_debug 1
+Config.DebugConvar = 'dwkambience_debug'
+
 -- Webhook de Discord: set dwkambience_webhook "https://discord.com/api/webhooks/..."
 Config.WebhookConvar = 'dwkambience_webhook'

@@ -28,6 +28,7 @@ client_scripts {
     'client/select.lua',
     'client/gizmo.lua',
     'client/editor.lua',
+    'client/player.lua',
 }
 
 server_scripts {
@@ -37,6 +38,7 @@ server_scripts {
     'server/locks.lua',
     'server/migrations.lua',
     'server/scenes.lua',
+    'server/playback.lua',
     'server/main.lua',
 }
 
