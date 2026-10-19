@@ -1,5 +1,5 @@
 // Dibujo del timeline en canvas. Fuera de Vue: se llama en cada frame con requestAnimationFrame.
-import { clipEnd, findTrack } from '../../scene'
+import { clipEnd, findTrack, groupSpan } from '../../scene'
 import type { AnyClip, AudioClip, EventKey, SceneData, VisibilityKey } from '../../types'
 import type { ItemRef } from '../../stores/timeline'
 import { ROW_H, type Row } from './rows'
@@ -43,6 +43,9 @@ export interface View {
   scrollMs: number
   duration: number
 }
+
+// Ancho mínimo de un bloque de set piece para poder agarrarlo aunque dure poco
+const MIN_BLOCK_PX = 24
 
 // Margen a la izquierda para que las keys en t = 0 se vean enteras
 export const PAD = 10
@@ -173,6 +176,24 @@ export function drawLanes(
       ctx.fillRect(Math.max(0, endX), top, view.width - endX, ROW_H)
     }
 
+    if (row.groupId) {
+      const group = scene.groups?.find((g) => g.id === row.groupId)
+      const span = group && groupSpan(scene, group)
+      if (!span) return
+      const isSel = selected?.kind === 'group' && selected.trackId === row.groupId
+      const x1 = xOf(view, span.start)
+      const x2 = Math.max(xOf(view, span.end), x1 + MIN_BLOCK_PX)
+      roundRect(ctx, x1, top + 3, x2 - x1, ROW_H - 6, 4)
+      ctx.fillStyle = isSel ? pal.accent : pal.accentSoft
+      ctx.fill()
+      ctx.save()
+      ctx.clip()
+      ctx.fillStyle = isSel ? pal.text : pal.text2
+      ctx.fillText(group!.label, x1 + 6, mid)
+      ctx.restore()
+      return
+    }
+
     const track = findTrack(scene, row.target, row.channel)
     if (!track) return
 
@@ -260,6 +281,14 @@ export function drawLanes(
 
 /** Key o clip bajo el puntero en una fila, o null. */
 export function hitItem(scene: SceneData, row: Row, view: View, x: number): ItemRef | null {
+  if (row.groupId) {
+    const group = scene.groups?.find((g) => g.id === row.groupId)
+    const span = group && groupSpan(scene, group)
+    if (!span) return null
+    const x1 = xOf(view, span.start)
+    const x2 = Math.max(xOf(view, span.end), x1 + MIN_BLOCK_PX)
+    return x >= x1 && x <= x2 ? { trackId: row.groupId!, index: 0, kind: 'group' } : null
+  }
   const track = findTrack(scene, row.target, row.channel)
   if (!track) return null
   if (track.keys) {

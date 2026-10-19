@@ -126,7 +126,27 @@ function toggleDoor(door: number) {
 
 <template>
   <aside class="inspector">
-    <KeyPanel v-if="editor.selectedItem" />
+    <div v-if="editor.selectedGroup" class="group-panel">
+      <header class="head">
+        <div class="kind faint"><Icon name="setpiece" :size="14" /> {{ t('rowSetPiece') }} · <span class="mono">{{ editor.selectedGroup.id }}</span></div>
+        <input class="title" :value="editor.selectedGroup.label" maxlength="64" :disabled="!editor.canEdit" @change="editor.renameGroup(editor.selectedGroup!.id, text($event))" />
+      </header>
+      <div class="scroll body">
+        <section>
+          <p class="note">{{ t('groupHint') }}</p>
+          <div class="section-title">{{ t('groupMembers', { n: editor.selectedGroup.members.length }) }}</div>
+          <button v-for="m in editor.selectedGroup.members" :key="m" class="btn ghost member" @click="editor.select(m)">
+            {{ editor.scene?.entities.find((e) => e.id === m)?.label ?? m }}
+          </button>
+        </section>
+        <section>
+          <button class="btn" :disabled="!editor.canEdit" @click="editor.ungroup(editor.selectedGroup!.id)">{{ t('groupUngroup') }}</button>
+          <button class="btn danger" :disabled="!editor.canEdit" @click="editor.deleteGroup(editor.selectedGroup!.id)"><Icon name="trash" :size="14" /> {{ t('groupDelete') }}</button>
+        </section>
+      </div>
+    </div>
+
+    <KeyPanel v-else-if="editor.selectedItem" />
 
     <div v-else-if="!entity" class="empty">
       <p class="faint">{{ t('inspectorEmpty') }}</p>
@@ -528,6 +548,8 @@ section + section { border-top: 1px solid var(--line); }
 .sub { margin-top: 6px; }
 .tools { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; margin-top: 4px; }
 .tools.single { grid-template-columns: 1fr; }
+.group-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.member { justify-content: flex-start; }
 .color-row { display: flex; align-items: center; gap: 4px; }
 .color-row input { flex: 1; }
 .color-row .btn.icon { width: 24px; height: 24px; }

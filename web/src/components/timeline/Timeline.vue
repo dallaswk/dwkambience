@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { loadSounds, type SoundAsset } from '../../audio'
 import { t } from '../../i18n'
-import { formatTime, sceneDuration } from '../../scene'
+import { formatTime, groupSpan, sceneDuration } from '../../scene'
 import { useEditor } from '../../stores/editor'
 import { useHistory } from '../../stores/history'
 import { useTimeline } from '../../stores/timeline'
@@ -94,7 +94,7 @@ function closeMenus(e: MouseEvent) {
 type Drag =
   | { mode: 'scrub' }
   | { mode: 'region'; anchor: number }
-  | { mode: 'item'; kind: 'key' | 'clip'; startX: number; origin: number; moved: boolean }
+  | { mode: 'item'; kind: 'key' | 'clip' | 'group'; id: string; startX: number; origin: number; moved: boolean }
 
 let drag: Drag | null = null
 
@@ -130,9 +130,15 @@ function onLanesDown(e: PointerEvent) {
   const hit = hitItem(scene, row, view(), x)
   if (hit) {
     tl.select(hit)
-    const sel = editor.selectedItem
-    const origin = sel ? ('t' in sel.item ? sel.item.t : sel.item.start) : 0
-    drag = { mode: 'item', kind: hit.kind, startX: x, origin, moved: false }
+    let origin = 0
+    if (hit.kind === 'group') {
+      const group = scene.groups?.find((g) => g.id === hit.trackId)
+      origin = (group && groupSpan(scene, group)?.start) ?? 0
+    } else {
+      const sel = editor.selectedItem
+      origin = sel ? ('t' in sel.item ? sel.item.t : sel.item.start) : 0
+    }
+    drag = { mode: 'item', kind: hit.kind, id: hit.trackId, startX: x, origin, moved: false }
     return
   }
 
@@ -160,7 +166,8 @@ function onMove(e: PointerEvent) {
       drag.moved = true
     }
     const next = Math.max(0, tl.snapTime(drag.origin + (x - drag.startX) / view().pxPerMs))
-    editor.updateSelected(drag.kind === 'key' ? { t: next } : { start: next }, false)
+    if (drag.kind === 'group') editor.moveGroup(drag.id, next, false)
+    else editor.updateSelected(drag.kind === 'key' ? { t: next } : { start: next }, false)
   }
 }
 

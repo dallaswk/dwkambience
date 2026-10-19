@@ -218,5 +218,9 @@ export async function mockNui<T>(event: string, data: unknown): Promise<T> {
 
 /** Simula que el cliente abre el editor al cargar la página. */
 export function bootMock() {
+  setInterval(() => {
+    const ms = 14 + Math.random() * 6
+    window.postMessage({ action: 'perf', data: { ms: +ms.toFixed(1), fps: Math.round(1000 / ms), peds: 0 } }, '*')
+  }, 1000)
   window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300, maxNetworked: 20 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX, screens: [{ model: 'prop_tv_flat_01', target: 'tvscreen' }, { model: 'v_ilev_cin_screen', target: 'cinscreen' }] } }, '*')
 }

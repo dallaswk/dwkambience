@@ -5,7 +5,7 @@ import type { MessageKey } from '../i18n'
 import { fetchNui } from '../nui'
 import {
   CAMERA, EVENTS, MUSIC, addClip, addEventKey, findTrack, keyIndexAt, nextEntityId, normalizeScene, sceneDuration,
-  scenePeds, sceneWeight, setTrackKeys, upsertVisibilityKey, visibleAt,
+  groupSpan, nextGroupId, scenePeds, sceneWeight, setTrackKeys, shiftGroup, upsertVisibilityKey, visibleAt,
   removeEntity as removeFromScene, removeItem, transformTrack, updateClip, updateKey, upsertPoseKey,
 } from '../scene'
 import type {
@@ -105,6 +105,7 @@ export const useEditor = defineStore('editor', () => {
   const setPieces = ref<{ id: number; name: string }[]>([])
   // null = diálogo cerrado
   const revisions = ref<{ rev: number; createdBy: string | null; createdAt: number | string | null; size: number | null }[] | null>(null)
+  const perf = ref<{ ms: number; fps: number; peds: number } | null>(null)
   const screenProps = ref<{ model: string; target: string }[]>([])
   const transfer = ref<{ mode: 'export'; name: string; json: string } | { mode: 'import' } | null>(null)
 
@@ -623,7 +624,7 @@ export const useEditor = defineStore('editor', () => {
   }
 
   /** Inserta una set piece donde mira la cámara y a partir del instante actual, con ids nuevos */
-  async function insertSetPiece(id: number) {
+  async function insertSetPiece(id: number, name = t('paletteSetPiece')) {
     if (!scene.value || !canEdit.value) return
     const result = await fetchNui<Result & { data: SetPieceData }>('setPieceGet', { id })
     if (!result?.ok) return fail(result)
@@ -641,6 +642,7 @@ export const useEditor = defineStore('editor', () => {
 
     edit((s) => {
       const idMap = new Map<string, string>()
+      const groupId = nextGroupId(s)
       for (const e of piece.entities) {
         const { id: newId } = nextEntityId(s, e.kind)
         idMap.set(e.id, newId)
@@ -661,9 +663,72 @@ export const useEditor = defineStore('editor', () => {
           clips: tr.clips?.map((c) => ({ ...c, start: Math.max(0, c.start + dt) })),
         }]
       }
+      // La set piece insertada queda como un bloque que se mueve entero en el timeline
+      s.groups = [...(s.groups ?? []), { id: groupId, label: name.slice(0, 64), members: [...idMap.values()] }]
     })
     if (firstId) select(firstId)
     toasts.push(t('setPieceInserted'), 'success')
+  }
+
+  // --- Grupos ---------------------------------------------------------------------
+
+  const selectedGroup = computed(() => {
+    const sel = useTimeline().selected
+    return sel?.kind === 'group' ? scene.value?.groups?.find((g) => g.id === sel.trackId) ?? null : null
+  })
+
+  /** Agrupa la selección (Ctrl+clic) en un bloque; sus entidades salen de otros grupos */
+  async function groupSelection() {
+    const ids = selectionIds.value
+    if (!scene.value || !canEdit.value || ids.length < 1) return fail({ ok: false, error: 'empty_set_piece' })
+    const label = await useConfirm().askText({ title: t('groupTitle'), body: t('groupBody', { n: ids.length }), confirm: t('groupAction'), placeholder: t('groupName') })
+    if (!label) return
+    let groupId = ''
+    edit((s) => {
+      groupId = nextGroupId(s)
+      const groups = (s.groups ?? [])
+        .map((g) => ({ ...g, members: g.members.filter((m) => !ids.includes(m)) }))
+        .filter((g) => g.members.length > 0)
+      s.groups = [...groups, { id: groupId, label: label.slice(0, 64), members: ids }]
+    })
+    useTimeline().select({ trackId: groupId, index: 0, kind: 'group' })
+  }
+
+  /** Mueve el bloque para que empiece en `start`. checkpoint = false durante el arrastre. */
+  function moveGroup(groupId: string, start: number, checkpoint = true) {
+    const group = scene.value?.groups?.find((g) => g.id === groupId)
+    const span = group && scene.value && groupSpan(scene.value, group)
+    if (!span || span.start === start) return
+    edit((s) => shiftGroup(s, groupId, start - span.start), checkpoint)
+  }
+
+  function renameGroup(groupId: string, label: string) {
+    if (!label.trim()) return
+    edit((s) => {
+      s.groups = s.groups.map((g) => (g.id === groupId ? { ...g, label: label.trim().slice(0, 64) } : g))
+    })
+  }
+
+  /** Deshace el bloque: las entidades se quedan, ya sueltas */
+  function ungroup(groupId: string) {
+    edit((s) => {
+      s.groups = s.groups.filter((g) => g.id !== groupId)
+    })
+    useTimeline().select(null)
+  }
+
+  /** Borra el bloque y todas sus entidades */
+  async function deleteGroup(groupId: string) {
+    const group = scene.value?.groups?.find((g) => g.id === groupId)
+    if (!group) return
+    const ok = await useConfirm().ask({ title: t('groupDeleteTitle', { name: group.label }), body: t('groupDeleteBody', { n: group.members.length }), confirm: t('delete'), danger: true })
+    if (!ok) return
+    edit((s) => {
+      for (const id of group.members) removeFromScene(s, id)
+    })
+    for (const id of group.members) fetchNui('removeEntity', { id })
+    useTimeline().select(null)
+    if (selectedId.value && group.members.includes(selectedId.value)) select(null)
   }
 
   async function deleteSetPiece(id: number, name: string) {
@@ -984,9 +1049,10 @@ export const useEditor = defineStore('editor', () => {
 
   const selectedItem = computed<SelectedItem | null>(() => {
     const sel = useTimeline().selected
-    const track = sel ? scene.value?.tracks.find((tr) => tr.id === sel.trackId) : undefined
-    const item = sel && track ? (sel.kind === 'key' ? track.keys : track.clips)?.[sel.index] : undefined
-    return sel && track && item ? { track, index: sel.index, kind: sel.kind, item } : null
+    if (!sel || sel.kind === 'group') return null
+    const track = scene.value?.tracks.find((tr) => tr.id === sel.trackId)
+    const item = track ? (sel.kind === 'key' ? track.keys : track.clips)?.[sel.index] : undefined
+    return track && item ? { track, index: sel.index, kind: sel.kind, item } : null
   })
 
   /** Cambia la key o clip seleccionado. checkpoint = false en los arrastres (la instantánea se toma al empezar). */
@@ -1020,6 +1086,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    perf, selectedGroup, groupSelection, moveGroup, renameGroup, ungroup, deleteGroup,
     revisions, openHistory, restoreRevision, copyPlayerOutfit, lookAtCamera, setAttach,
     screenProps, spawnScreen, isScreenModel, setScreen, updateScreen,
     transfer, exportScene, openImport, importScene, networkedCount, maxNetworked, setNetworked,

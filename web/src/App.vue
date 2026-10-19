@@ -79,6 +79,9 @@ function onKey(e: KeyboardEvent) {
   } else if (key === ' ') {
     e.preventDefault()
     timeline.toggle()
+  } else if (mod && key === 'g') {
+    e.preventDefault()
+    editor.groupSelection()
   } else if (mod && key === 'd') {
     e.preventDefault()
     if (editor.selectedId) editor.duplicateEntity(editor.selectedId)
@@ -95,7 +98,7 @@ function onKey(e: KeyboardEvent) {
   } else if (key === 'f' && editor.selectedId) {
     editor.focus(editor.selectedId)
   } else if (key === 'escape') {
-    if (editor.selectedItem) timeline.select(null)
+    if (editor.selectedItem || editor.selectedGroup) timeline.select(null)
     else if (editor.selectedId) editor.select(null)
   }
 }
@@ -108,6 +111,7 @@ onMounted(() => {
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
     else if (action === 'preview') editor.onPreview(data as { active: boolean })
+    else if (action === 'perf') editor.perf = data as { ms: number; fps: number; peds: number }
     else if (action === 'recording') editor.onRecording(data as Parameters<typeof editor.onRecording>[0])
     else if (action === 'music') handleMusic(data as MusicMessage)
     else if (action === 'audio3d') handleAudio3D(data as Audio3DMessage)

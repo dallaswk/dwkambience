@@ -98,6 +98,7 @@ const menus = computed<Menu[]>(() => {
         item(t('rec'), editor.record, { shortcut: 'R', disabled: !canEdit || !['ped', 'vehicle'].includes(editor.selected?.kind ?? '') }),
         item(t('toggleVisibility'), () => id && editor.toggleVisibility(id), { shortcut: 'H', disabled: !canEdit || !id }),
         item(t('saveSetPiece'), editor.saveSetPiece, { disabled: !canEdit || !editor.selectionIds.length }),
+        item(t('groupAction'), editor.groupSelection, { shortcut: 'Ctrl+G', disabled: !canEdit || !editor.selectionIds.length }),
         item(t('evFadeOut'), () => editor.addEvent('fade'), { disabled: !canEdit }),
         item(t('evSubtitle'), () => editor.addEvent('subtitle'), { disabled: !canEdit }),
         item(t('evTrigger'), () => editor.addEvent('trigger'), { disabled: !canEdit }),
@@ -166,6 +167,12 @@ const savedLabel = computed(() => {
   if (!editor.savedAt) return ''
   const d = new Date(editor.savedAt)
   return t('savedAt', { time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
+})
+
+// Presupuesto: verde por encima de 50 fps, aviso entre 30 y 50, peligro por debajo
+const perfLevel = computed(() => {
+  const fps = editor.perf?.fps ?? 60
+  return fps < 30 ? 'danger' : fps < 50 ? 'warn' : ''
 })
 
 const nearLimit = computed(() => !!editor.studio && editor.entityCount >= editor.studio.maxEntities * 0.9)
@@ -253,6 +260,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     </div>
 
     <div class="right">
+      <span v-if="editor.perf && editor.scene" class="perf mono" :class="perfLevel" :title="t('perfTitle', { peds: editor.perf.peds })">
+        {{ editor.perf.ms.toFixed(1) }} ms · {{ editor.perf.fps }} fps
+      </span>
       <span v-if="editor.studio" class="counter mono" :class="{ warn: nearLimit }">
         {{ editor.studio.label }} // {{ editor.entityCount }}/{{ editor.studio.maxEntities }}
       </span>
@@ -297,6 +307,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 .saved.dirty { color: var(--warning); }
 .counter { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
 .counter.warn { color: var(--warning); }
+.perf { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.perf.warn { color: var(--warning); }
+.perf.danger { color: var(--danger); }
 
 .menu-root { position: relative; }
 .dropdown {

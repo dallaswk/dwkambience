@@ -1,4 +1,4 @@
-// Espejo en TS de shared/scene.lua (schema 5)
+// Espejo en TS de shared/scene.lua (schema 6)
 
 export type Vec3 = [number, number, number]
 export type SceneType = 'cutscene' | 'ambience'
@@ -90,6 +90,10 @@ export interface Key {
   rot: Vec3
   ease?: Ease
   fov?: number
+  /** Profundidad de campo (solo cámara): intensidad 0-1 y enfoque entre near y far metros */
+  dofStrength?: number
+  dofNear?: number
+  dofFar?: number
 }
 
 export type EventKey =
@@ -151,11 +155,19 @@ export interface SetPieceData {
   tracks: Track[]
 }
 
+/** Set piece insertada: sus entidades se mueven juntas en el timeline */
+export interface SceneGroup {
+  id: string
+  label: string
+  members: string[]
+}
+
 export interface SceneData {
   schema: number
   settings: SceneSettings
   entities: SceneEntity[]
   tracks: Track[]
+  groups: SceneGroup[]
 }
 
 export interface SceneMeta {

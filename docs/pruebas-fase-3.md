@@ -43,7 +43,16 @@ fases 0, 1 y 2 se repiten sin regresiones.
 - [ ] Importar un JSON roto o de otra cosa: aviso claro, no se crea nada.
 - [ ] Cutscene con multitud y emisor de sonido: la gente está desde el primer frame y el sonido es posicional.
 
-## 6. Regresión y limpieza
+## 6. Pulido
+
+- [ ] Cámara libre: Z/C giran, X endereza; una key grabada con giro se reproduce con ese giro.
+- [ ] Key de cámara con profundidad de campo: se ve desenfocado fuera del rango, en Camera view y en la reproducción.
+- [ ] Insertar una set piece: aparece su bloque; arrastrarlo mueve todas sus keys; desagrupar y borrar funcionan.
+- [ ] El indicador de ms/frame cambia de color al cargar mucho la escena.
+- [ ] Multitudes Discoteca y Público de concierto: la gente baila (si alguna anim no existe, esas personas no salen).
+- [ ] Ped en red con escenario: lo ven igual todos los jugadores, también cuando el primero sale de la zona.
+
+## 7. Regresión y limpieza
 
 - [ ] Repetir `docs/pruebas-fase-1.md` y `docs/pruebas-fase-2.md`.
 - [ ] `ensure dwkambience` durante una grabación, una cutscene y dentro de un ambience: nada queda colgado

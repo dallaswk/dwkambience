@@ -70,6 +70,33 @@ const start = computed(() => {
             <span>{{ t('keyFov') }}</span>
             <input type="number" min="1" max="130" step="1" :value="poseKey.fov ?? 50" :disabled="disabled" @change="editor.updateSelected({ fov: Number(value($event)) })" />
           </label>
+          <template v-if="channel === 'camera'">
+            <label class="switch">
+              <input
+                type="checkbox"
+                :checked="poseKey.dofStrength !== undefined"
+                :disabled="disabled"
+                @change="($event.target as HTMLInputElement).checked
+                  ? editor.updateSelected({ dofStrength: 0.8, dofNear: 2, dofFar: 15 })
+                  : editor.updateSelected({ dofStrength: undefined, dofNear: undefined, dofFar: undefined })"
+              />
+              {{ t('dof') }}
+            </label>
+            <template v-if="poseKey.dofStrength !== undefined">
+              <label class="field">
+                <span>{{ t('dofStrength') }} <span class="mono faint">{{ Math.round(poseKey.dofStrength * 100) }}%</span></span>
+                <input type="range" min="0" max="1" step="0.05" :value="poseKey.dofStrength" :disabled="disabled" @change="editor.updateSelected({ dofStrength: Number(value($event)) })" />
+              </label>
+              <label class="field">
+                <span>{{ t('dofNear') }}</span>
+                <input type="number" min="0" step="0.5" :value="poseKey.dofNear" :disabled="disabled" @change="editor.updateSelected({ dofNear: Math.max(0, Number(value($event))) })" />
+              </label>
+              <label class="field">
+                <span>{{ t('dofFar') }}</span>
+                <input type="number" min="0.5" step="0.5" :value="poseKey.dofFar" :disabled="disabled" @change="editor.updateSelected({ dofFar: Math.max((poseKey!.dofNear ?? 0) + 0.5, Number(value($event))) })" />
+              </label>
+            </template>
+          </template>
           <Vec3Field :label="t('position')" :value="poseKey.pos" :step="0.05" :disabled="disabled" @change="(pos: Vec3) => editor.updateSelected({ pos })" />
           <Vec3Field :label="t('rotation')" :value="poseKey.rot" :step="1" :disabled="disabled" @change="(rot: Vec3) => editor.updateSelected({ rot })" />
         </template>

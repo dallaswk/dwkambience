@@ -1,10 +1,10 @@
 import { t } from './i18n'
 import type { MessageKey } from './i18n'
 import type {
-  AnyClip, AnyKey, Channel, EntityKind, Key, SceneData, SceneEntity, SceneType, Track, Vec3,
+  AnyClip, AnyKey, Channel, EntityKind, Key, SceneData, SceneEntity, SceneGroup, SceneType, Track, Vec3,
 } from './types'
 
-export const SCHEMA = 5
+export const SCHEMA = 6
 
 /** Targets que no son entidades (igual que Scene.RESERVED_TARGETS en Lua) */
 export const CAMERA = 'camera'
@@ -59,6 +59,7 @@ export function newScene(type: SceneType): SceneData {
     },
     entities: [],
     tracks: [],
+    groups: [],
   }
 }
 
@@ -97,6 +98,7 @@ export function normalizeScene(raw: unknown, type: SceneType): SceneData {
       else track.keys = asArray(tr.keys)
       return track
     }),
+    groups: asArray<SceneGroup>(raw.groups).map((g) => ({ ...g, members: asArray<string>(g.members) })),
   }
 }
 
@@ -219,6 +221,56 @@ export function removeItem(scene: SceneData, trackId: string, index: number) {
 export function removeEntity(scene: SceneData, entityId: string) {
   scene.entities = scene.entities.filter((e) => e.id !== entityId)
   scene.tracks = scene.tracks.filter((tr) => tr.target !== entityId)
+  // Un grupo sin miembros desaparece
+  scene.groups = (scene.groups ?? [])
+    .map((g) => (g.members.includes(entityId) ? { ...g, members: g.members.filter((m) => m !== entityId) } : g))
+    .filter((g) => g.members.length > 0)
+}
+
+// --- Grupos (set pieces como bloque) --------------------------------------------------
+
+export function nextGroupId(scene: SceneData) {
+  let max = 0
+  for (const g of scene.groups ?? []) {
+    const match = g.id.match(/^grp_(\d+)$/)
+    if (match) max = Math.max(max, Number(match[1]))
+  }
+  return `grp_${max + 1}`
+}
+
+/** Primer y último instante de las keys y clips de los miembros de un grupo, o null si no tienen */
+export function groupSpan(scene: SceneData, group: SceneGroup): { start: number; end: number } | null {
+  let start = Infinity
+  let end = -Infinity
+  for (const tr of scene.tracks) {
+    if (!group.members.includes(tr.target)) continue
+    for (const k of tr.keys ?? []) {
+      start = Math.min(start, k.t)
+      end = Math.max(end, k.t)
+    }
+    for (const c of tr.clips ?? []) {
+      start = Math.min(start, c.start)
+      end = Math.max(end, clipEnd(c, c.start + 3000))
+    }
+  }
+  return Number.isFinite(start) ? { start, end: Math.max(end, start + 100) } : null
+}
+
+/** Desplaza en el tiempo todas las pistas de los miembros (sin pasar de t = 0). Devuelve el desplazamiento aplicado. */
+export function shiftGroup(scene: SceneData, groupId: string, dt: number) {
+  const group = scene.groups?.find((g) => g.id === groupId)
+  const span = group && groupSpan(scene, group)
+  if (!group || !span || dt === 0) return 0
+  const applied = Math.max(dt, -span.start)
+  scene.tracks = scene.tracks.map((tr) => {
+    if (!group.members.includes(tr.target)) return tr
+    return {
+      ...tr,
+      keys: tr.keys?.map((k) => ({ ...k, t: k.t + applied })),
+      clips: tr.clips?.map((c) => ({ ...c, start: c.start + applied })),
+    }
+  })
+  return applied
 }
 
 /** Primera key de transform (la pose base cuando no hay timeline). */

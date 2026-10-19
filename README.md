@@ -82,6 +82,16 @@ jugador al entrar en su radio y se limpia al salir, en bucle y sin quitarle el c
   en otro servidor. El servidor migra y valida el JSON y crea una escena nueva; los ambiences llegan apagados.
 - **Cutscenes**: también admiten emisores de sonido 3D y multitudes (se crean durante la pantalla en negro).
 
+## Cámara, bloques y rendimiento
+
+- **Roll y profundidad de campo**: en la cámara libre Z/C giran (X endereza); las keys de cámara admiten
+  profundidad de campo (intensidad y distancias de enfoque), interpolada entre keys.
+- **Set pieces como bloque**: al insertar una set piece (o con Herramientas → Agrupar selección, Ctrl+G)
+  sus entidades forman un bloque con fila propia en el timeline; arrastrarlo mueve todas sus keys a la vez.
+- **Coste por frame**: la barra superior del editor muestra ms/frame y FPS (aviso por debajo de 50 fps).
+- **Bailes** en los presets Discoteca y Público de concierto, y **peds en red animados** (escenario o
+  animación aplicados por su dueño de red).
+
 ## Música
 
 Copia los `.ogg` a `web/public/sounds/`, compila (`npm run build`) y reinicia el recurso: aparecen en

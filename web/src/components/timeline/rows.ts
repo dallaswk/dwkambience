@@ -12,6 +12,8 @@ export interface Row {
   labelKey: MessageKey | null
   subKey: MessageKey | null
   entityId: string | null
+  /** Fila de un bloque de set piece (no es una pista) */
+  groupId?: string
 }
 
 export const ROW_H = 26
@@ -27,6 +29,9 @@ export function buildRows(scene: SceneData | null, type: SceneType | undefined):
   }
   rows.push({ id: EVENTS, target: EVENTS, channel: 'event', icon: 'flag', label: null, labelKey: 'rowEvents', subKey: null, entityId: null })
   rows.push({ id: MUSIC, target: MUSIC, channel: 'audio', icon: 'music', label: null, labelKey: 'rowMusic', subKey: null, entityId: null })
+  for (const g of scene.groups ?? []) {
+    rows.push({ id: `group:${g.id}`, target: g.id, channel: 'event', icon: 'setpiece', label: g.label, labelKey: null, subKey: 'rowSetPiece', entityId: null, groupId: g.id })
+  }
 
   for (const e of scene.entities) {
     if (e.kind === 'crowd') {

@@ -15,9 +15,9 @@ watch(
   },
 )
 
-function insert(id: number) {
+function insert(id: number, name: string) {
   emit('close')
-  editor.insertSetPiece(id)
+  editor.insertSetPiece(id, name)
 }
 
 function save() {
@@ -30,7 +30,7 @@ function save() {
   <div v-if="open" class="palette">
     <ul class="scroll">
       <li v-for="item in editor.setPieces" :key="item.id">
-        <button class="item" @click="insert(item.id)">
+        <button class="item" @click="insert(item.id, item.name)">
           <Icon name="setpiece" :size="14" />
           <span>{{ item.name }}</span>
         </button>

@@ -12,6 +12,8 @@ const SHORTCUTS: { keys: string | MessageKey; label: MessageKey }[] = [
   { keys: 'kbRmbWasd', label: 'scFly' },
   { keys: 'Q / E', label: 'scUpDown' },
   { keys: 'Shift / Ctrl', label: 'scSpeed' },
+  { keys: 'Z / C · X', label: 'scRoll' },
+  { keys: 'Ctrl+G', label: 'scGroup' },
   { keys: 'kbClick', label: 'scSelect' },
   { keys: 'F', label: 'scFocus' },
   { keys: 'W / R · Enter · Esc', label: 'scGizmo' },

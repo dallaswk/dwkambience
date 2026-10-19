@@ -9,7 +9,8 @@ import { useEditor } from './editor'
 export interface ItemRef {
   trackId: string
   index: number
-  kind: 'key' | 'clip'
+  /** 'group': trackId es el id del grupo (bloque de set piece) */
+  kind: 'key' | 'clip' | 'group'
 }
 
 const SEND_INTERVAL = 1000 / 60 // scrub NUI -> cliente: como mucho 60 mensajes/s
