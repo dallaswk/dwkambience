@@ -26,6 +26,12 @@ local function spawnMember(m)
         RequestModel(hash)
         return nil
     end
+    -- Sin el diccionario cargado la persona se quedaría quieta para siempre: se reintenta luego
+    if m.anim and not HasAnimDictLoaded(m.anim.dict) then
+        if not DoesAnimDictExist(m.anim.dict) then return false end
+        RequestAnimDict(m.anim.dict)
+        return nil
+    end
 
     local ped = CreatePed(4, hash, m.pos[1] + 0.0, m.pos[2] + 0.0, groundZ(m.pos), m.heading + 0.0, false, false)
     if not ped or ped == 0 then return false end
@@ -38,11 +44,9 @@ local function spawnMember(m)
 
     if m.scenario then
         TaskStartScenarioInPlace(ped, m.scenario, 0, true)
-    elseif m.anim and HasAnimDictLoaded(m.anim.dict) then
+    elseif m.anim then
         TaskPlayAnim(ped, m.anim.dict, m.anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
         SetEntityAnimCurrentTime(ped, m.anim.dict, m.anim.clip, m.phase)
-    elseif m.anim then
-        RequestAnimDict(m.anim.dict)
     end
     return ped
 end

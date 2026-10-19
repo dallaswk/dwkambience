@@ -11,11 +11,16 @@ local CONTROL = {
     forward = 32, back = 33, left = 34, right = 35,
     down = 44, up = 38,
     fast = 21, slow = 36,
+    rollLeft = 20, rollRight = 26, rollReset = 73, -- Z, C, X
 }
+
+local ROLL_SPEED = 30.0 -- grados por segundo
+local dof
 
 function Freecam.start(startPos, startRot)
     pos = startPos
     rot = vector3(startRot.x, 0.0, startRot.z)
+    dof = nil
     cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, fov, true, 2)
     RenderScriptCams(true, false, 0, true, true)
 end
@@ -53,7 +58,13 @@ end
 
 function Freecam.set(newPos, newRot)
     pos = newPos
-    if newRot then rot = vector3(newRot.x, 0.0, newRot.z) end
+    if newRot then rot = vector3(newRot.x, newRot.y or 0.0, newRot.z) end
+end
+
+--- Profundidad de campo (Camera view muestra la de la cutscene); nil la quita
+function Freecam.setDof(value)
+    dof = value
+    if cam then Util.applyDof(cam, dof) end
 end
 
 --- Coloca la cámara mirando a un punto desde una distancia.
@@ -69,7 +80,11 @@ function Freecam.update(dt, active)
         local cfg = Config.Freecam
         local lookX = GetDisabledControlNormal(0, CONTROL.lookX)
         local lookY = GetDisabledControlNormal(0, CONTROL.lookY)
-        rot = vector3(math.max(-89.0, math.min(89.0, rot.x - lookY * cfg.sensitivity)), 0.0, rot.z - lookX * cfg.sensitivity)
+        local roll = rot.y
+        if IsDisabledControlPressed(0, CONTROL.rollLeft) then roll = roll - ROLL_SPEED * dt end
+        if IsDisabledControlPressed(0, CONTROL.rollRight) then roll = roll + ROLL_SPEED * dt end
+        if IsDisabledControlJustPressed(0, CONTROL.rollReset) then roll = 0.0 end
+        rot = vector3(math.max(-89.0, math.min(89.0, rot.x - lookY * cfg.sensitivity)), roll, rot.z - lookX * cfg.sensitivity)
 
         local speed = cfg.speed * speedMultiplier
         if IsDisabledControlPressed(0, CONTROL.fast) then speed = speed * cfg.fastMultiplier end
@@ -86,5 +101,6 @@ function Freecam.update(dt, active)
     SetCamCoord(cam, pos.x, pos.y, pos.z)
     SetCamRot(cam, rot.x, rot.y, rot.z, 2)
     SetCamFov(cam, fov)
+    Util.tickDof(dof)
     SetFocusPosAndVel(pos.x, pos.y, pos.z, 0.0, 0.0, 0.0)
 end

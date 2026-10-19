@@ -5,6 +5,7 @@ local index = {} -- [id] = { id, name, active, schedule, trigger, version }
 local live = {}  -- [id] = runtime
 local cache = {} -- [id] = { version, data }
 local worldOwner -- ambience cuyo clima/hora se está aplicando
+local netPeds = {} -- [ambienceId] = { { netId, scenario, anim } }
 
 local cfg = Config.Ambience
 
@@ -30,6 +31,7 @@ local function stop(id)
     local rt = live[id]
     if not rt then return end
     live[id] = nil
+    netPeds[id] = nil
     TriggerServerEvent('dwkambience:ambiencePresence', id, false)
     if rt.pool then rt.pool:clear() end
     Audio3D.clear(group(id))
@@ -89,6 +91,35 @@ local function setIndex(list)
 end
 
 RegisterNetEvent('dwkambience:ambienceIndex', setIndex)
+
+RegisterNetEvent('dwkambience:netPeds', function(id, list)
+    netPeds[id] = type(list) == 'table' and list or {}
+end)
+
+-- Las tareas de un ped en red solo las puede dar su dueño de red (y se replican al resto). El dueño
+-- puede cambiar, así que cada pocos segundos quien lo sea comprueba que sigue haciendo lo suyo.
+local function applyNetPedTasks()
+    local me = PlayerId()
+    for id, list in pairs(netPeds) do
+        if live[id] then
+            for _, task in ipairs(list) do
+                local ped = NetworkDoesNetworkIdExist(task.netId) and NetworkGetEntityFromNetworkId(task.netId) or 0
+                if ped ~= 0 and DoesEntityExist(ped) and NetworkGetEntityOwner(ped) == me then
+                    SetBlockingOfNonTemporaryEvents(ped, true)
+                    if task.scenario and not IsPedUsingScenario(ped, task.scenario) then
+                        TaskStartScenarioInPlace(ped, task.scenario, 0, true)
+                    elseif task.anim and not IsEntityPlayingAnim(ped, task.anim.dict, task.anim.clip, 3) then
+                        if HasAnimDictLoaded(task.anim.dict) then
+                            TaskPlayAnim(ped, task.anim.dict, task.anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+                        else
+                            RequestAnimDict(task.anim.dict)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
 
 CreateThread(function()
     setIndex(lib.callback.await('dwkambience:ambienceIndex', false))
@@ -163,7 +194,7 @@ end
 
 -- Bucle por frame: timeline en bucle, multitudes por distancia, audio y clima
 CreateThread(function()
-    local lastCrowds, lastWorld, lastAudio, lastSync = 0, 0, 0, 0
+    local lastCrowds, lastWorld, lastAudio, lastSync, lastNet = 0, 0, 0, 0, 0
     while true do
         if not next(live) then
             Wait(500)
@@ -201,6 +232,11 @@ CreateThread(function()
                     if not rt.loading then Audio3D.set(group(id), rt.pool:emitters()) end
                 end
                 lastAudio = clock
+            end
+
+            if clock - lastNet > 2000 then
+                applyNetPedTasks()
+                lastNet = clock
             end
 
             if clock - lastSync > 1000 then

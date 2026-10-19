@@ -22,7 +22,8 @@ local function setFocus()
 end
 
 local function editorLoop()
-    local last, lastWorld, lastCrowds = GetGameTimer(), 0, 0
+    local last, lastWorld, lastCrowds, lastPerf = GetGameTimer(), 0, 0, 0
+    local frames, frameTime = 0, 0.0
     while isOpen do
         local now = GetGameTimer()
         local dt = (now - last) / 1000
@@ -46,6 +47,14 @@ local function editorLoop()
         end
 
         if prepared then Select.drawZone(prepared.data.settings.trigger) end
+
+        -- Coste por frame para la barra del editor (media de los últimos ~500 ms)
+        frames, frameTime = frames + 1, frameTime + GetFrameTime()
+        if now - lastPerf > 500 then
+            local ms = frameTime / frames * 1000
+            send('perf', { ms = Util.round(ms, 1), fps = math.floor(1000 / ms + 0.5), peds = Entities:pedCount() })
+            frames, frameTime, lastPerf = 0, 0.0, now
+        end
 
         if not Gizmo.isRunning() then
             DisableAllControlActions(0)
@@ -85,6 +94,7 @@ local function applyCamera(state)
     local c = state.camera
     Freecam.set(vector3(c.pos[1], c.pos[2], c.pos[3]), vector3(c.rot[1], c.rot[2], c.rot[3]))
     Freecam.setFov(c.fov)
+    Freecam.setDof(c.dof)
 end
 
 local function syncAudio()
@@ -110,6 +120,7 @@ local function setCameraView(active)
     elseif savedCam then
         Freecam.set(savedCam.pos, savedCam.rot)
         Freecam.setFov(savedCam.fov)
+        Freecam.setDof(nil)
         savedCam = nil
     end
 end

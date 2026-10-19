@@ -188,6 +188,9 @@ local function run(payload, onEnd)
             SetCamCoord(a.cam, c.pos[1], c.pos[2], c.pos[3])
             SetCamRot(a.cam, c.rot[1], c.rot[2], c.rot[3], 2)
             SetCamFov(a.cam, c.fov)
+            if (c.dof ~= nil) ~= (a.dofOn == true) or c.dof then Util.applyDof(a.cam, c.dof) end
+            a.dofOn = c.dof ~= nil
+            Util.tickDof(c.dof)
             SetFocusPosAndVel(c.pos[1], c.pos[2], c.pos[3], 0.0, 0.0, 0.0)
         end
 

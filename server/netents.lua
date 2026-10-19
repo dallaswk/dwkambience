@@ -5,6 +5,7 @@ NetEnts = {}
 
 local presence = {} -- [ambienceId] = { [src] = true }
 local spawned = {}  -- [ambienceId] = { handles }
+local pedTasks = {} -- [ambienceId] = { { netId, scenario, anim } } para los peds en red
 
 local VEHICLE_TYPES = { automobile = true, bike = true, boat = true, heli = true, plane = true, submarine = true, trailer = true, train = true }
 
@@ -19,13 +20,24 @@ local function despawn(id)
         if DoesEntityExist(handle) then DeleteEntity(handle) end
     end
     spawned[id] = nil
+    pedTasks[id] = nil
+end
+
+--- Manda a los jugadores de la zona qué escenario/animación lleva cada ped en red
+local function sendTasks(id, target)
+    local list = pedTasks[id] or {}
+    if target then
+        TriggerClientEvent('dwkambience:netPeds', target, id, list)
+        return
+    end
+    for src in pairs(presence[id] or {}) do TriggerClientEvent('dwkambience:netPeds', src, id, list) end
 end
 
 local function spawn(id)
     local entry, data = Ambience.get(id)
     if not entry or not entry.active or not data then return end
     despawn(id)
-    local handles = {}
+    local handles, tasks = {}, {}
     for _, entity in ipairs(data.entities or {}) do
         if entity.networked and Scene.GAME_KINDS[entity.kind] then
             local pos, rot = Scene.baseTransform(data, entity.id)
@@ -50,6 +62,14 @@ local function spawn(id)
                     SetEntityOrphanMode(handle, 2) -- no se borra si su dueño de red se desconecta
                     if entity.kind ~= 'vehicle' then FreezeEntityPosition(handle, true) end
                     handles[#handles + 1] = handle
+                    local p = entity.props or {}
+                    if entity.kind == 'ped' and (p.scenario or (type(p.anim) == 'table' and p.anim.dict)) then
+                        tasks[#tasks + 1] = {
+                            netId = NetworkGetNetworkIdFromEntity(handle),
+                            scenario = p.scenario,
+                            anim = type(p.anim) == 'table' and p.anim or nil,
+                        }
+                    end
                 else
                     print(('[dwkambience] no se pudo crear en red %s (%s) del ambience #%d'):format(entity.id, entity.model, id))
                 end
@@ -57,6 +77,8 @@ local function spawn(id)
         end
     end
     spawned[id] = handles
+    pedTasks[id] = tasks
+    sendTasks(id)
 end
 
 --- El ambience cambió (guardado, activado/apagado, borrado): se rehacen sus entidades si hay alguien dentro
@@ -77,6 +99,8 @@ local function setPresence(src, id, inside)
     local after = count(presence[id])
     if before == 0 and after > 0 then
         spawn(id)
+    elseif inside and after > before then
+        sendTasks(id, src) -- quien llega puede acabar siendo dueño de alguno
     elseif before > 0 and after == 0 then
         despawn(id)
     end

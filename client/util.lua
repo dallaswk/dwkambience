@@ -38,6 +38,24 @@ function Util.worldHit(from, to, ignore)
     return hit == 1 and coords or nil
 end
 
+--- Profundidad de campo en una cámara de script. dof = { strength, near, far } o nil para quitarla.
+--- SetUseHiDof tiene que llamarse cada frame mientras haya DOF (Util.tickDof).
+function Util.applyDof(cam, dof)
+    if dof then
+        SetCamUseShallowDofMode(cam, true)
+        SetCamNearDof(cam, dof.near + 0.0)
+        SetCamFarDof(cam, dof.far + 0.0)
+        SetCamDofStrength(cam, dof.strength + 0.0)
+    else
+        SetCamUseShallowDofMode(cam, false)
+        SetCamDofStrength(cam, 0.0)
+    end
+end
+
+function Util.tickDof(dof)
+    if dof then SetUseHiDof() end
+end
+
 function Util.loadModel(model)
     local hash = type(model) == 'string' and joaat(model) or model
     if not IsModelInCdimage(hash) or not IsModelValid(hash) then return nil end

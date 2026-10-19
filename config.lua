@@ -56,6 +56,7 @@ Config.Ambience = {
 }
 
 -- Presets de multitudes: modelos y escenarios (o anims { dict, clip }) entre los que se reparte la gente.
+-- Si una anim no existe, esas personas no aparecen (revisa los nombres in-game).
 -- El nombre visible sale de la NUI (preset_<id> en web/src/i18n.ts).
 Config.CrowdPresets = {
     custom = {
@@ -64,7 +65,13 @@ Config.CrowdPresets = {
     },
     club = {
         models = { 'a_m_y_clubcust_01', 'a_m_y_clubcust_02', 'a_m_y_clubcust_03', 'a_f_y_clubcust_01', 'a_f_y_clubcust_02', 'a_f_y_clubcust_03' },
-        scenarios = { 'WORLD_HUMAN_PARTYING', 'WORLD_HUMAN_DRINKING', 'WORLD_HUMAN_SMOKING' },
+        scenarios = { 'WORLD_HUMAN_PARTYING', 'WORLD_HUMAN_DRINKING' },
+        anims = {
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@male@var_a@', clip = 'high_center' },
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@male@var_b@', clip = 'high_center' },
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@female@var_a@', clip = 'high_center' },
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@female@var_b@', clip = 'med_center' },
+        },
     },
     street = {
         models = { 'a_m_y_hipster_01', 'a_m_y_hipster_02', 'a_f_y_hipster_01', 'a_f_y_hipster_02', 'a_m_m_skater_01', 'a_f_y_tourist_01' },
@@ -89,6 +96,10 @@ Config.CrowdPresets = {
     concert = {
         models = { 'a_m_y_clubcust_01', 'a_f_y_clubcust_01', 'a_m_y_hipster_01', 'a_f_y_hipster_01', 'a_m_y_beach_01' },
         scenarios = { 'WORLD_HUMAN_CHEERING', 'WORLD_HUMAN_PARTYING' },
+        anims = {
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@male@var_a@', clip = 'med_center' },
+            { dict = 'anim@amb@nightclub@mini@dance@dance_solo@female@var_a@', clip = 'med_center' },
+        },
     },
 }
 
