@@ -14,6 +14,9 @@ const SECTIONS: { kind: EntityKind; label: MessageKey }[] = [
   { kind: 'prop', label: 'sectionProp' },
   { kind: 'sound', label: 'sectionSound' },
   { kind: 'crowd', label: 'sectionCrowd' },
+  { kind: 'text', label: 'sectionText' },
+  { kind: 'light', label: 'sectionLight' },
+  { kind: 'ptfx', label: 'sectionPtfx' },
 ]
 
 const sections = computed(() => {
@@ -21,8 +24,9 @@ const sections = computed(() => {
   return SECTIONS.map((s) => ({ ...s, items: entities.filter((e) => e.kind === s.kind) })).filter((s) => s.items.length)
 })
 
-function onClick(entity: SceneEntity) {
-  editor.select(entity.id)
+function onClick(entity: SceneEntity, e: MouseEvent) {
+  if (e.ctrlKey || e.metaKey) editor.toggleMulti(entity.id)
+  else editor.select(entity.id)
 }
 </script>
 
@@ -42,8 +46,8 @@ function onClick(entity: SceneEntity) {
           v-for="entity in section.items"
           :key="entity.id"
           class="item"
-          :class="{ selected: entity.id === editor.selectedId }"
-          @click="onClick(entity)"
+          :class="{ selected: entity.id === editor.selectedId, multi: editor.multiSelected.includes(entity.id) && entity.id !== editor.selectedId }"
+          @click="onClick(entity, $event)"
           @dblclick="editor.focus(entity.id)"
         >
           <Icon :name="entity.kind" :size="14" />
@@ -78,6 +82,7 @@ function onClick(entity: SceneEntity) {
 }
 .item:hover { background: var(--surface-2); color: var(--text); }
 .item.selected { background: var(--accent-soft); color: var(--accent); }
+.item.multi { background: var(--surface-3); color: var(--text); }
 .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); }
 .model { font-size: var(--fs-xs); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

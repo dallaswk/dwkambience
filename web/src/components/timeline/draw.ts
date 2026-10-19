@@ -1,6 +1,6 @@
 // Dibujo del timeline en canvas. Fuera de Vue: se llama en cada frame con requestAnimationFrame.
 import { clipEnd, findTrack } from '../../scene'
-import type { AnyClip, AudioClip, EventKey, SceneData } from '../../types'
+import type { AnyClip, AudioClip, EventKey, SceneData, VisibilityKey } from '../../types'
 import type { ItemRef } from '../../stores/timeline'
 import { ROW_H, type Row } from './rows'
 
@@ -208,6 +208,23 @@ export function drawLanes(
         diamond(ctx, x, mid, 6, isSel ? pal.accent : pal.text3)
         ctx.fillStyle = pal.text2
         ctx.fillText(EVENT_LETTER[k.type], x + 9, mid)
+      })
+      return
+    }
+
+    if (track.channel === 'visibility') {
+      const vis = keys as VisibilityKey[]
+      vis.forEach((k, index) => {
+        const next = vis[index + 1]
+        const start = index === 0 ? 0 : k.t
+        if (k.visible || (index === 0 && vis[0].visible)) {
+          const x1 = xOf(view, start)
+          const x2 = next ? xOf(view, next.t) : xOf(view, view.duration)
+          ctx.fillStyle = pal.accentSoft
+          ctx.fillRect(x1, top + 7, Math.max(2, x2 - x1), ROW_H - 14)
+        }
+        const isSel = selected?.trackId === track.id && selected.index === index
+        diamond(ctx, xOf(view, k.t), mid, 5, isSel ? pal.accent : pal.text2, isSel ? pal.text : undefined)
       })
       return
     }

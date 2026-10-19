@@ -1,5 +1,5 @@
 import type { MessageKey } from '../../i18n'
-import { CAMERA, EVENTS, MUSIC } from '../../scene'
+import { CAMERA, EVENTS, MUSIC, findTrack } from '../../scene'
 import type { Channel, SceneData, SceneType } from '../../types'
 
 export interface Row {
@@ -29,10 +29,18 @@ export function buildRows(scene: SceneData | null, type: SceneType | undefined):
   rows.push({ id: MUSIC, target: MUSIC, channel: 'audio', icon: 'music', label: null, labelKey: 'rowMusic', subKey: null, entityId: null })
 
   for (const e of scene.entities) {
-    if (e.kind === 'crowd') continue
+    if (e.kind === 'crowd') {
+      if (findTrack(scene, e.id, 'visibility')) {
+        rows.push({ id: `${e.id}:visibility`, target: e.id, channel: 'visibility', icon: 'eye', label: e.label, labelKey: null, subKey: 'rowVisibility', entityId: e.id })
+      }
+      continue
+    }
     rows.push({ id: `${e.id}:transform`, target: e.id, channel: 'transform', icon: e.kind, label: e.label, labelKey: null, subKey: 'rowTransform', entityId: e.id })
     if (e.kind === 'ped') {
       rows.push({ id: `${e.id}:anim`, target: e.id, channel: 'anim', icon: 'ped', label: e.label, labelKey: null, subKey: 'rowAnim', entityId: e.id })
+    }
+    if (findTrack(scene, e.id, 'visibility')) {
+      rows.push({ id: `${e.id}:visibility`, target: e.id, channel: 'visibility', icon: 'eye', label: e.label, labelKey: null, subKey: 'rowVisibility', entityId: e.id })
     }
   }
   return rows

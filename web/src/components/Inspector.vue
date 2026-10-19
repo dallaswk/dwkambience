@@ -3,9 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { VEHICLE_DOORS } from '../catalog'
 import { loadSounds, type SoundAsset } from '../audio'
 import { t, tOr } from '../i18n'
-import { KIND_LABEL, baseTransform, formatTime } from '../scene'
+import { KIND_LABEL, baseTransform, formatTime, visibleAt } from '../scene'
 import { useEditor } from '../stores/editor'
-import type { Facing, Vec3 } from '../types'
+import type { Color, Facing, Vec3 } from '../types'
 import { useTimeline } from '../stores/timeline'
 import Icon from './Icon.vue'
 import KeyPanel from './KeyPanel.vue'
@@ -33,6 +33,15 @@ const crowdMax = computed(() => {
 })
 
 const FACINGS: Facing[] = ['random', 'along', 'point']
+
+const text3d = computed(() => entity.value?.text)
+const light = computed(() => entity.value?.light)
+const ptfx = computed(() => entity.value?.ptfx)
+const visibleNow = computed(() => (editor.scene && entity.value ? visibleAt(editor.scene, entity.value.id, timeline.time) : true))
+
+const toHex = (c: Color) => `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+const fromHex = (hex: string): Color => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as Color
+const FONTS = [0, 1, 2, 4, 6, 7]
 const num = (e: Event) => Number((e.target as HTMLInputElement).value)
 const text = (e: Event) => (e.target as HTMLInputElement).value
 
@@ -124,7 +133,7 @@ function toggleDoor(door: number) {
           <div class="section-title">{{ t('transform') }}</div>
           <template v-if="transform">
             <Vec3Field :label="t('position')" :value="transform.pos" :step="0.05" :disabled="disabled" @change="setPos" />
-            <Vec3Field v-if="isGameEntity" :label="t('rotation')" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
+            <Vec3Field v-if="entity.kind !== 'sound'" :label="t('rotation')" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
           </template>
           <div v-if="!isGameEntity" class="tools single">
             <button class="btn" :disabled="disabled" @click="editor.moveToCamera(entity.id)"><Icon name="focus" :size="14" /> {{ t('moveToCamera') }}</button>
@@ -154,6 +163,93 @@ function toggleDoor(door: number) {
             :disabled="disabled"
             @change="setScenario(($event.target as HTMLInputElement).value)"
           />
+        </section>
+
+        <section v-if="text3d">
+          <div class="section-title">{{ t('kindText') }}</div>
+          <label class="field column">
+            <span>{{ t('textContent') }}</span>
+            <input :value="text3d.content" maxlength="200" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { content: text($event).trim() || text3d!.content })" />
+          </label>
+          <label class="field">
+            <span>{{ t('color') }}</span>
+            <input type="color" :value="toHex(text3d.color)" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { color: fromHex(text($event)) })" />
+          </label>
+          <label class="range">
+            <span>{{ t('textScale') }} <span class="mono faint">{{ text3d.scale.toFixed(1) }}</span></span>
+            <input type="range" min="0.1" max="5" step="0.1" :value="text3d.scale" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { scale: num($event) })" />
+          </label>
+          <label class="field">
+            <span>{{ t('textFont') }}</span>
+            <select :value="text3d.font" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { font: num($event) })">
+              <option v-for="f in FONTS" :key="f" :value="f">{{ f }}</option>
+            </select>
+          </label>
+          <label class="switch"><input type="checkbox" :checked="text3d.outline" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { outline: ($event.target as HTMLInputElement).checked })" /> {{ t('textOutline') }}</label>
+          <label class="switch"><input type="checkbox" :checked="text3d.backface" :disabled="disabled" @change="editor.updateDef(entity.id, 'text', { backface: ($event.target as HTMLInputElement).checked })" /> {{ t('textBackface') }}</label>
+        </section>
+
+        <section v-if="light">
+          <div class="section-title">{{ t('kindLight') }}</div>
+          <label class="field">
+            <span>{{ t('lightType') }}</span>
+            <select :value="light.type" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { type: text($event) as 'point' | 'spot' })">
+              <option value="point">{{ t('lightPoint') }}</option>
+              <option value="spot">{{ t('lightSpot') }}</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>{{ t('color') }}</span>
+            <input type="color" :value="toHex(light.color)" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { color: fromHex(text($event)) })" />
+          </label>
+          <label class="range">
+            <span>{{ t('lightRange') }} <span class="mono faint">{{ light.range }} m</span></span>
+            <input type="range" min="0.5" max="100" step="0.5" :value="light.range" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { range: num($event) })" />
+          </label>
+          <label class="range">
+            <span>{{ t('lightIntensity') }} <span class="mono faint">{{ light.intensity }}</span></span>
+            <input type="range" min="0" max="50" step="0.5" :value="light.intensity" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { intensity: num($event) })" />
+          </label>
+          <template v-if="light.type === 'spot'">
+            <label class="range">
+              <span>{{ t('lightAngle') }} <span class="mono faint">{{ light.angle }}°</span></span>
+              <input type="range" min="1" max="90" step="1" :value="light.angle" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { angle: num($event) })" />
+            </label>
+            <label class="range">
+              <span>{{ t('lightFalloff') }} <span class="mono faint">{{ light.falloff }}</span></span>
+              <input type="range" min="0" max="50" step="0.5" :value="light.falloff" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { falloff: num($event) })" />
+            </label>
+          </template>
+          <label class="switch"><input type="checkbox" :checked="light.shadow" :disabled="disabled" @change="editor.updateDef(entity.id, 'light', { shadow: ($event.target as HTMLInputElement).checked })" /> {{ t('lightShadow') }}</label>
+          <p class="note">{{ t('lightHint') }}</p>
+        </section>
+
+        <section v-if="ptfx">
+          <div class="section-title">{{ t('kindPtfx') }}</div>
+          <label class="field column">
+            <span>{{ t('ptfxEffect') }}</span>
+            <select
+              class="mono"
+              :value="`${ptfx.asset}/${ptfx.effect}`"
+              :disabled="disabled"
+              @change="editor.updateDef(entity.id, 'ptfx', { asset: text($event).split('/')[0], effect: text($event).split('/')[1] })"
+            >
+              <option v-if="!editor.ptfxCatalog.some((p) => p.asset === ptfx!.asset && p.effect === ptfx!.effect)" :value="`${ptfx.asset}/${ptfx.effect}`">{{ ptfx.asset }}/{{ ptfx.effect }}</option>
+              <option v-for="p in editor.ptfxCatalog" :key="`${p.asset}/${p.effect}`" :value="`${p.asset}/${p.effect}`">{{ p.asset }}/{{ p.effect }}</option>
+            </select>
+          </label>
+          <label class="range">
+            <span>{{ t('textScale') }} <span class="mono faint">{{ ptfx.scale.toFixed(1) }}</span></span>
+            <input type="range" min="0.1" max="10" step="0.1" :value="ptfx.scale" :disabled="disabled" @change="editor.updateDef(entity.id, 'ptfx', { scale: num($event) })" />
+          </label>
+          <label class="switch">
+            <input type="checkbox" :checked="!!ptfx.color" :disabled="disabled" @change="editor.updateDef(entity.id, 'ptfx', { color: ($event.target as HTMLInputElement).checked ? [255, 255, 255] : undefined })" />
+            {{ t('ptfxTint') }}
+          </label>
+          <label v-if="ptfx.color" class="field">
+            <span>{{ t('color') }}</span>
+            <input type="color" :value="toHex(ptfx.color)" :disabled="disabled" @change="editor.updateDef(entity.id, 'ptfx', { color: fromHex(text($event)) })" />
+          </label>
         </section>
 
         <section v-if="sound">
@@ -255,6 +351,14 @@ function toggleDoor(door: number) {
         </section>
 
         <section>
+          <div class="section-title">{{ t('visibility') }}</div>
+          <p class="note">{{ visibleNow ? t('visibleNow') : t('hiddenNow') }} · {{ formatTime(timeline.time) }}</p>
+          <button class="btn" :disabled="disabled" @click="editor.toggleVisibility(entity.id)">
+            <Icon name="eye" :size="14" /> {{ visibleNow ? t('hideFromHere') : t('showFromHere') }}
+          </button>
+        </section>
+
+        <section>
           <button class="btn danger" :disabled="disabled" @click="editor.removeEntity(entity.id)"><Icon name="trash" :size="14" /> {{ t('deleteEntity') }}</button>
         </section>
       </div>
@@ -282,6 +386,7 @@ section + section { border-top: 1px solid var(--line); }
 .field { display: grid; grid-template-columns: 1fr 150px; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }
 .field.column { grid-template-columns: 1fr; }
 .field input, .field select { font-size: var(--fs-sm); padding: 5px 7px; }
+.field input[type='color'] { padding: 2px; height: 28px; }
 .points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 140px; overflow-y: auto; }
 .points li { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-2); padding-left: 4px; }
 .points .btn.icon { width: 24px; height: 24px; }

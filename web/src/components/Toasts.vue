@@ -16,14 +16,14 @@ const toasts = useToasts()
 </template>
 
 <style scoped>
+/* Abajo a la derecha del viewport: arriba taparían los menús desplegables */
 .toasts {
   position: fixed;
-  top: calc(var(--topbar-h) + 12px);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(var(--timeline-h) + 16px);
+  right: calc(var(--right-w) + 16px);
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: column-reverse;
+  align-items: flex-end;
   gap: 6px;
   z-index: 50;
 }
@@ -43,5 +43,5 @@ const toasts = useToasts()
 .warning .dot { background: var(--warning); }
 .error .dot { background: var(--danger); }
 .toast-enter-active, .toast-leave-active { transition: opacity 0.18s, transform 0.18s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-6px); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(6px); }
 </style>

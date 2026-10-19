@@ -239,6 +239,14 @@ function onDurationChange(e: Event) {
         <button v-if="isCutscene" class="btn ghost" :class="{ active: tl.cameraView }" @click="tl.setCameraView(!tl.cameraView)">
           <Icon name="camera" :size="14" /> {{ t('tlCameraView') }}
         </button>
+        <button
+          class="btn ghost rec"
+          :disabled="!editor.canEdit || !['ped', 'vehicle'].includes(editor.selected?.kind ?? '')"
+          :title="t('recTitle')"
+          @click="editor.record()"
+        >
+          <Icon name="rec" :size="14" /> {{ t('rec') }}
+        </button>
         <button class="btn icon ghost" :class="{ active: tl.loop }" :title="t('tlLoop')" @click="tl.loop = !tl.loop"><Icon name="loop" /></button>
         <button class="btn icon ghost" :class="{ active: tl.snap }" :title="t('tlSnap')" @click="tl.snap = !tl.snap"><Icon name="magnet" /></button>
       </div>
@@ -333,6 +341,7 @@ function onDurationChange(e: Event) {
 .btn { height: 28px; }
 .btn.icon { width: 28px; }
 .play { background: var(--accent); color: var(--on-accent); }
+.rec:not(:disabled) { color: var(--danger); }
 .play:hover:not(:disabled) { background: var(--accent-hover); }
 .clock { margin-left: 10px; font-size: var(--fs-sm); }
 .duration { display: flex; align-items: center; gap: 6px; margin-left: 6px; font-size: var(--fs-xs); }

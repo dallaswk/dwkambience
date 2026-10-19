@@ -5,7 +5,7 @@ import { useEditor } from '../stores/editor'
 
 const editor = useEditor()
 
-const VERSION = '0.2.0'
+const VERSION = '1.0.0'
 
 // keys: texto literal (nombres de tecla universales) o clave de traducción
 const SHORTCUTS: { keys: string | MessageKey; label: MessageKey }[] = [
@@ -18,6 +18,8 @@ const SHORTCUTS: { keys: string | MessageKey; label: MessageKey }[] = [
   { keys: 'kbSpace', label: 'scPlay' },
   { keys: 'K', label: 'scKey' },
   { keys: 'P', label: 'scPreview' },
+  { keys: 'R', label: 'scRec' },
+  { keys: 'H', label: 'scVisibility' },
   { keys: 'Ctrl+Z / Ctrl+Y', label: 'scUndoRedo' },
   { keys: 'Ctrl+D', label: 'scDuplicate' },
   { keys: 'kbDelete', label: 'scDelete' },

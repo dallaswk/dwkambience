@@ -5,14 +5,16 @@ import type { MessageKey } from '../i18n'
 import { fetchNui } from '../nui'
 import {
   CAMERA, EVENTS, MUSIC, addClip, addEventKey, findTrack, keyIndexAt, nextEntityId, normalizeScene, sceneDuration,
-  scenePeds, sceneWeight,
+  scenePeds, sceneWeight, setTrackKeys, upsertVisibilityKey, visibleAt,
   removeEntity as removeFromScene, removeItem, transformTrack, updateClip, updateKey, upsertPoseKey,
 } from '../scene'
 import type {
-  AnyClip, AnyKey, CrowdDef, EntityKind, EventType, OpenResult, SoundDef, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
+  AnyClip, AnyKey, CrowdDef, EntityKind, EventType, Key, LightDef, OpenResult, PtfxDef, SetPieceData, SoundDef, TextDef, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
   SceneType, Studio, Track, Vec3,
 } from '../types'
+import { LIGHT_STYLES, TEXT_STYLES } from '../catalog'
 import { useHistory } from './history'
+import { useConfirm } from './confirm'
 import { useTimeline } from './timeline'
 import { useToasts } from './toasts'
 
@@ -33,6 +35,12 @@ const ERRORS: Record<string, MessageKey> = {
   corrupt_scene: 'errCorrupt',
   db_error: 'errDb',
   db_not_ready: 'errDbNotReady',
+  need_vehicle: 'errNeedVehicle',
+  not_recordable: 'errNotRecordable',
+  too_short: 'errTooShort',
+  empty_set_piece: 'errEmptySetPiece',
+  bad_set_piece: 'errBadSetPiece',
+  unavailable: 'errUnavailable',
 }
 
 // Los errores de validación del servidor ('invalid: ...') se muestran tal cual
@@ -88,6 +96,10 @@ export const useEditor = defineStore('editor', () => {
   const crowdPresets = ref<string[]>([])
   const maxPedsPerAmbience = ref(60)
   const placingPoints = ref(false) // clic en el viewport añade puntos a la multitud seleccionada
+  const ptfxCatalog = ref<{ asset: string; effect: string }[]>([])
+  const recording = ref(false)
+  const multiSelected = ref<string[]>([]) // selección múltiple (Ctrl+clic) para set pieces
+  const setPieces = ref<{ id: number; name: string }[]>([])
 
   const studio = computed<Studio | null>(() => (meta.value ? studios.value[meta.value.studio] ?? null : null))
   // Cada persona de una multitud cuenta para el límite del estudio
@@ -164,10 +176,11 @@ export const useEditor = defineStore('editor', () => {
 
   // --- Ciclo de vida --------------------------------------------------------
 
-  function show(payload: { studios: unknown; locale?: unknown; presets?: unknown; maxPedsPerAmbience?: unknown }) {
+  function show(payload: { studios: unknown; locale?: unknown; presets?: unknown; maxPedsPerAmbience?: unknown; ptfx?: unknown }) {
     setLocale(payload.locale)
     crowdPresets.value = Array.isArray(payload.presets) ? (payload.presets as string[]) : []
     if (typeof payload.maxPedsPerAmbience === 'number') maxPedsPerAmbience.value = payload.maxPedsPerAmbience
+    ptfxCatalog.value = Array.isArray(payload.ptfx) ? (payload.ptfx as { asset: string; effect: string }[]) : []
     studios.value = toStudios(payload.studios)
     visible.value = true
     refreshList()
@@ -193,6 +206,8 @@ export const useEditor = defineStore('editor', () => {
     worldPreview.value = false
     previewing.value = false
     placingPoints.value = false
+    recording.value = false
+    multiSelected.value = []
   }
 
   async function exit() {
@@ -393,6 +408,203 @@ export const useEditor = defineStore('editor', () => {
     if (pos) setPose(id, [pos[0], pos[1], pos[2] + 1], [0, 0, 0])
   }
 
+  // --- Texto 3D, luces y partículas ---------------------------------------------------
+
+  async function spawnFx(kind: 'text' | 'light' | 'ptfx', def: TextDef | LightDef | PtfxDef, labelSuffix = '') {
+    if (!scene.value || !canEdit.value) return
+    const pos = await cameraPoint()
+    if (!pos) return
+    const { id, label } = nextEntityId(scene.value, kind)
+    const entity: SceneEntity = { id, kind, label: `${label}${labelSuffix}`.slice(0, 64), props: {}, networked: false, [kind]: def }
+    const at = useTimeline().snapTime(useTimeline().time)
+    edit((s) => {
+      s.entities = [...s.entities, entity]
+      upsertPoseKey(s, id, 'transform', { t: at, pos: [pos[0], pos[1], pos[2] + 1.5], rot: [0, 0, 0] })
+    })
+    select(id)
+  }
+
+  function spawnText(style: string) {
+    const s = TEXT_STYLES[style] ?? TEXT_STYLES.normal
+    spawnFx('text', { content: t('textDefault'), color: s.color, scale: s.scale, font: s.font, outline: true, backface: false })
+  }
+
+  function spawnLight(style: string) {
+    spawnFx('light', { ...(LIGHT_STYLES[style] ?? LIGHT_STYLES.warm) })
+  }
+
+  function spawnPtfx(key: string) {
+    const [asset, effect] = key.split('/')
+    spawnFx('ptfx', { asset, effect, scale: 1 }, ` · ${effect}`)
+  }
+
+  /** Cambia la definición de texto, luz o partículas de una entidad */
+  function updateDef(id: string, kind: 'text' | 'light' | 'ptfx', patch: Partial<TextDef & LightDef & PtfxDef>) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    const current = entity?.[kind]
+    if (!current) return
+    const next = { ...current, ...patch } as TextDef & LightDef & PtfxDef
+    if (kind === 'light' && next.type === 'point') {
+      delete next.angle
+      delete next.falloff
+    } else if (kind === 'light' && next.type === 'spot') {
+      next.angle ??= 30
+      next.falloff ??= 2
+    }
+    updateEntity(id, { [kind]: next })
+  }
+
+  /** Key de visibilidad en el instante actual que invierte el estado (mostrar/ocultar desde aquí) */
+  function toggleVisibility(id: string) {
+    if (!scene.value) return
+    const at = useTimeline().snapTime(useTimeline().time)
+    const visible = visibleAt(scene.value, id, at)
+    const hasKeys = !!findTrack(scene.value, id, 'visibility')?.keys?.length
+    edit((s) => {
+      // Sin keys previas, se fija también el estado inicial: si no, la primera key mandaría desde t = 0
+      if (!hasKeys && at > 0) upsertVisibilityKey(s, id, 0, visible)
+      upsertVisibilityKey(s, id, at, !visible)
+    })
+  }
+
+  // --- Grabación en vivo --------------------------------------------------------------
+
+  async function record() {
+    const entity = selected.value
+    if (!entity || !canEdit.value || recording.value) return
+    if (entity.kind !== 'ped' && entity.kind !== 'vehicle') return fail({ ok: false, error: 'not_recordable' })
+    const timeline = useTimeline()
+    timeline.pause()
+    const result = await fetchNui<Result>('record', { id: entity.id, startT: timeline.snapTime(timeline.time), hint: t('recHint') })
+    if (result && result.ok === false) fail(result)
+  }
+
+  function onRecording(data: { active: boolean; id: string; keys?: unknown; error?: string }) {
+    recording.value = data.active
+    if (data.active) return
+    const keys = Array.isArray(data.keys) ? (data.keys as Key[]) : []
+    if (!keys.length) return fail({ ok: false, error: data.error ?? 'too_short' })
+    const from = keys[0].t
+    const to = keys[keys.length - 1].t
+    // Las keys grabadas sustituyen a las que había en ese tramo de la pista
+    edit((s) => {
+      const kept = ((transformTrack(s, data.id)?.keys ?? []) as Key[]).filter((k) => k.t < from || k.t > to)
+      setTrackKeys(s, data.id, 'transform', [...kept, ...keys])
+    })
+    toasts.push(t('recDone', { n: keys.length }), 'success')
+    useTimeline().setTime(to)
+  }
+
+  // --- Selección múltiple y set pieces ---------------------------------------------
+
+  /** Ctrl+clic: añade o quita una entidad de la selección múltiple */
+  function toggleMulti(id: string) {
+    const set = new Set(multiSelected.value)
+    if (selectedId.value && !set.size) set.add(selectedId.value)
+    if (set.has(id)) set.delete(id)
+    else set.add(id)
+    multiSelected.value = [...set]
+    selectedId.value = id
+    useTimeline().select(null)
+    fetchNui('select', { id })
+    refreshPose()
+  }
+
+  const selectionIds = computed(() => {
+    const ids = new Set(multiSelected.value)
+    if (selectedId.value) ids.add(selectedId.value)
+    return [...ids]
+  })
+
+  async function loadSetPieces() {
+    const result = await fetchNui<Result & { items: { id: number; name: string }[] }>('setPieces')
+    if (result?.ok) setPieces.value = Array.isArray(result.items) ? result.items : []
+  }
+
+  /** Guarda la selección (entidades y sus pistas) como set piece con nombre */
+  async function saveSetPiece() {
+    if (!scene.value) return
+    const ids = selectionIds.value
+    if (!ids.length) return fail({ ok: false, error: 'empty_set_piece' })
+    const name = await useConfirm().askText({ title: t('saveSetPiece'), body: t('setPieceNameHint', { n: ids.length }), confirm: t('save'), placeholder: t('setPieceName') })
+    if (!name) return
+
+    const entities = scene.value.entities.filter((e) => ids.includes(e.id))
+    const tracks = scene.value.tracks.filter((tr) => ids.includes(tr.target))
+    // Origen: media de las posiciones iniciales; inicio: la primera key o clip
+    const points: Vec3[] = []
+    let start = Infinity
+    for (const e of entities) {
+      const first = (transformTrack(scene.value, e.id)?.keys?.[0] as Key | undefined)?.pos ?? e.crowd?.points[0]
+      if (first) points.push(first)
+    }
+    for (const tr of tracks) {
+      for (const k of tr.keys ?? []) start = Math.min(start, k.t)
+      for (const c of tr.clips ?? []) start = Math.min(start, c.start)
+    }
+    const origin: Vec3 = points.length
+      ? [0, 1, 2].map((i) => points.reduce((sum, p) => sum + p[i], 0) / points.length) as Vec3
+      : [0, 0, 0]
+    const data: SetPieceData = { schema: scene.value.schema, origin, start: Number.isFinite(start) ? start : 0, entities, tracks }
+
+    const result = await fetchNui<Result>('setPieceSave', { name, data })
+    if (!result?.ok) return fail(result)
+    toasts.push(t('setPieceSaved', { name }), 'success')
+    loadSetPieces()
+  }
+
+  /** Inserta una set piece donde mira la cámara y a partir del instante actual, con ids nuevos */
+  async function insertSetPiece(id: number) {
+    if (!scene.value || !canEdit.value) return
+    const result = await fetchNui<Result & { data: SetPieceData }>('setPieceGet', { id })
+    if (!result?.ok) return fail(result)
+    const piece = normalizeScene({ schema: result.data.schema, settings: scene.value.settings, entities: result.data.entities, tracks: result.data.tracks }, 'cutscene')
+    const weight = piece.entities.reduce((sum, e) => sum + (e.kind === 'crowd' ? e.crowd?.count ?? 0 : ['ped', 'vehicle', 'prop'].includes(e.kind) ? 1 : 0), 0)
+    if (weight > pedsLeft()) return fail({ ok: false, error: 'too_many_entities' })
+    const target = await cameraPoint()
+    if (!target) return
+
+    const origin = result.data.origin
+    const offset = [target[0] - origin[0], target[1] - origin[1], target[2] - origin[2]]
+    const move = (p: Vec3): Vec3 => [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]]
+    const dt = useTimeline().snapTime(useTimeline().time) - (result.data.start ?? 0)
+    let firstId: string | null = null
+
+    edit((s) => {
+      const idMap = new Map<string, string>()
+      for (const e of piece.entities) {
+        const { id: newId } = nextEntityId(s, e.kind)
+        idMap.set(e.id, newId)
+        firstId ??= newId
+        const copy: SceneEntity = { ...e, id: newId }
+        if (e.crowd) copy.crowd = { ...e.crowd, points: e.crowd.points.map(move), lookAt: e.crowd.lookAt && move(e.crowd.lookAt) }
+        if (copy.crowd && !copy.crowd.lookAt) delete copy.crowd.lookAt
+        s.entities = [...s.entities, copy]
+      }
+      for (const tr of piece.tracks) {
+        const target = idMap.get(tr.target)
+        if (!target) continue
+        s.tracks = [...s.tracks, {
+          ...tr,
+          id: `${tr.id.split('_')[0]}_${target}`,
+          target,
+          keys: tr.keys?.map((k) => ({ ...k, t: Math.max(0, k.t + dt), ...('pos' in k ? { pos: move(k.pos) } : {}) })),
+          clips: tr.clips?.map((c) => ({ ...c, start: Math.max(0, c.start + dt) })),
+        }]
+      }
+    })
+    if (firstId) select(firstId)
+    toasts.push(t('setPieceInserted'), 'success')
+  }
+
+  async function deleteSetPiece(id: number, name: string) {
+    const ok = await useConfirm().ask({ title: t('deleteSetPieceTitle', { name }), body: t('deleteSetPieceBody'), confirm: t('delete'), danger: true })
+    if (!ok) return
+    const result = await fetchNui<Result>('setPieceDelete', { id })
+    if (!result?.ok) return fail(result)
+    loadSetPieces()
+  }
+
   // --- Ambience: zona, horario e interruptor ---------------------------------------
 
   function setTrigger(patch: Partial<NonNullable<SceneData['settings']['trigger']>>) {
@@ -466,6 +678,7 @@ export const useEditor = defineStore('editor', () => {
 
   function select(id: string | null) {
     selectedId.value = id
+    multiSelected.value = []
     pose.value = null
     fetchNui('select', { id })
     if (id) {
@@ -474,8 +687,10 @@ export const useEditor = defineStore('editor', () => {
     }
   }
 
-  async function pick(x: number, y: number) {
+  async function pick(x: number, y: number, additive = false) {
     const result = await fetchNui<Result & { id: string | null }>('pick', { x, y })
+    if (additive && result?.id) return toggleMulti(result.id)
+    multiSelected.value = []
     selectedId.value = result?.id ?? null
     if (selectedId.value) useTimeline().select(null)
     refreshPose()
@@ -663,6 +878,8 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,
+    toggleVisibility, record, onRecording, toggleMulti, loadSetPieces, saveSetPiece, insertSetPiece, deleteSetPiece,
     crowdPresets, maxPedsPerAmbience, placingPoints, pedCount, spawnSound, spawnCrowd, updateCrowd, regenerateCrowd,
     addCrowdPoint, removeCrowdPoint, crowdLookAtCamera, placePoint, updateSound, moveToCamera, setTrigger,
     centerZoneOnCamera, setActive,

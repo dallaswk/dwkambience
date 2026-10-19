@@ -1,9 +1,9 @@
-// Espejo en TS de shared/scene.lua (schema 3)
+// Espejo en TS de shared/scene.lua (schema 4)
 
 export type Vec3 = [number, number, number]
 export type SceneType = 'cutscene' | 'ambience'
-export type EntityKind = 'ped' | 'vehicle' | 'prop' | 'sound' | 'crowd'
-export type Channel = 'transform' | 'anim' | 'camera' | 'audio' | 'event'
+export type EntityKind = 'ped' | 'vehicle' | 'prop' | 'sound' | 'crowd' | 'text' | 'light' | 'ptfx'
+export type Channel = 'transform' | 'anim' | 'camera' | 'audio' | 'event' | 'visibility'
 export type Ease = 'linear' | 'in' | 'out' | 'inOut' | 'spline'
 export type EventType = 'fade' | 'subtitle' | 'trigger'
 
@@ -30,6 +30,34 @@ export interface SoundDef {
   loop: boolean
 }
 
+export type Color = [number, number, number]
+
+export interface TextDef {
+  content: string
+  color: Color
+  scale: number
+  font: number
+  outline: boolean
+  backface: boolean
+}
+
+export interface LightDef {
+  type: 'point' | 'spot'
+  color: Color
+  range: number
+  intensity: number
+  shadow: boolean
+  angle?: number
+  falloff?: number
+}
+
+export interface PtfxDef {
+  asset: string
+  effect: string
+  scale: number
+  color?: Color
+}
+
 export interface SceneEntity {
   id: string
   kind: EntityKind
@@ -40,6 +68,9 @@ export interface SceneEntity {
   networked: boolean
   crowd?: CrowdDef
   sound?: SoundDef
+  text?: TextDef
+  light?: LightDef
+  ptfx?: PtfxDef
 }
 
 /** Key de transform o de cámara */
@@ -74,7 +105,12 @@ export interface AnimClip {
   loop: boolean
 }
 
-export type AnyKey = Key | EventKey
+export interface VisibilityKey {
+  t: number
+  visible: boolean
+}
+
+export type AnyKey = Key | EventKey | VisibilityKey
 export type AnyClip = AudioClip | AnimClip
 
 export interface Track {
@@ -95,6 +131,14 @@ export interface SceneSettings {
   schedule: { from: string; to: string } | null
   trigger: { center: Vec3; enter: number; exit: number } | null
   timecycle: { name: string; strength: number } | null
+}
+
+export interface SetPieceData {
+  schema: number
+  origin: Vec3
+  start: number
+  entities: SceneEntity[]
+  tracks: Track[]
 }
 
 export interface SceneData {

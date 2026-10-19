@@ -73,6 +73,7 @@ local function openEditor()
     send('open', {
         studios = Config.Studios, defaultStudio = Config.DefaultStudio, locale = Config.Locale,
         presets = presets, maxPedsPerAmbience = Config.Ambience.maxPedsPerAmbience,
+        ptfx = Config.PtfxCatalog,
     })
     CreateThread(editorLoop)
 end

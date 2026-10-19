@@ -4,7 +4,7 @@ import { loadSounds, type SoundAsset } from '../audio'
 import { t } from '../i18n'
 import type { MessageKey } from '../i18n'
 import { useEditor } from '../stores/editor'
-import type { AnimClip, AudioClip, Ease, EventKey, Key, Vec3 } from '../types'
+import type { AnimClip, AudioClip, Ease, EventKey, Key, Vec3, VisibilityKey } from '../types'
 import Icon from './Icon.vue'
 import Vec3Field from './Vec3Field.vue'
 
@@ -25,6 +25,7 @@ const poseKey = computed(() => (channel.value === 'transform' || channel.value =
 const eventKey = computed(() => (channel.value === 'event' ? (sel.value!.item as EventKey) : null))
 const audioClip = computed(() => (channel.value === 'audio' ? (sel.value!.item as AudioClip) : null))
 const animClip = computed(() => (channel.value === 'anim' ? (sel.value!.item as AnimClip) : null))
+const visKey = computed(() => (channel.value === 'visibility' ? (sel.value!.item as VisibilityKey) : null))
 
 const sounds = ref<SoundAsset[]>([])
 onMounted(() => loadSounds().then((list) => (sounds.value = list)))
@@ -109,6 +110,11 @@ const start = computed(() => {
             <span class="hint faint">{{ t('triggerHint') }}</span>
           </label>
         </template>
+
+        <label v-if="visKey" class="switch">
+          <input type="checkbox" :checked="visKey.visible" :disabled="disabled" @change="editor.updateSelected({ visible: ($event.target as HTMLInputElement).checked })" />
+          {{ t('visibleFromHere') }}
+        </label>
 
         <template v-if="audioClip">
           <label class="field">

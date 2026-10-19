@@ -4,7 +4,7 @@ import type {
   AnyClip, AnyKey, Channel, EntityKind, Key, SceneData, SceneEntity, SceneType, Track, Vec3,
 } from './types'
 
-export const SCHEMA = 3
+export const SCHEMA = 4
 
 /** Targets que no son entidades (igual que Scene.RESERVED_TARGETS en Lua) */
 export const CAMERA = 'camera'
@@ -17,6 +17,9 @@ export const KIND_LABEL: Record<EntityKind, MessageKey> = {
   prop: 'kindProp',
   sound: 'kindSound',
   crowd: 'kindCrowd',
+  text: 'kindText',
+  light: 'kindLight',
+  ptfx: 'kindPtfx',
 }
 
 const KIND_PREFIX: Record<EntityKind, string> = {
@@ -25,6 +28,9 @@ const KIND_PREFIX: Record<EntityKind, string> = {
   prop: 'prop',
   sound: 'snd',
   crowd: 'crowd',
+  text: 'text',
+  light: 'light',
+  ptfx: 'fx',
 }
 
 const TRACK_PREFIX: Record<Channel, string> = {
@@ -33,6 +39,7 @@ const TRACK_PREFIX: Record<Channel, string> = {
   camera: 'cam',
   audio: 'au',
   event: 'ev',
+  visibility: 'vis',
 }
 
 export function newScene(type: SceneType): SceneData {
@@ -144,6 +151,28 @@ export function upsertPoseKey(scene: SceneData, target: string, channel: 'transf
   putTrack(scene, { ...track, keys: [...next, merged].sort(byTime) })
 }
 
+/** Sustituye todas las keys de una pista (la crea si no existe). */
+export function setTrackKeys(scene: SceneData, target: string, channel: Channel, keys: AnyKey[]) {
+  const track = ensureTrack(scene, target, channel)
+  putTrack(scene, { ...track, keys: [...keys].sort(byTime) })
+}
+
+/** Key de visibilidad en un instante (sustituye la que hubiera en ese t). */
+export function upsertVisibilityKey(scene: SceneData, target: string, time: number, visible: boolean) {
+  const track = ensureTrack(scene, target, 'visibility')
+  const keys = (track.keys ?? []).filter((k) => k.t !== time)
+  putTrack(scene, { ...track, keys: [...keys, { t: time, visible }].sort(byTime) })
+}
+
+/** ¿Visible en t? Igual que Evaluate.visible en Lua. */
+export function visibleAt(scene: SceneData, target: string, time: number) {
+  const keys = (findTrack(scene, target, 'visibility')?.keys ?? []) as { t: number; visible: boolean }[]
+  if (!keys.length) return true
+  let current = keys[0]
+  for (const k of keys) if (k.t <= time) current = k
+  return current.visible
+}
+
 export function addEventKey(scene: SceneData, key: AnyKey) {
   const track = ensureTrack(scene, EVENTS, 'event')
   putTrack(scene, { ...track, keys: [...(track.keys ?? []), key].sort(byTime) })
@@ -215,10 +244,11 @@ export function keyTimes(scene: SceneData): number[] {
 }
 
 /** Entidades de juego que representa (una multitud cuenta tantas como personas), igual que en Lua */
+export const GAME_KINDS: EntityKind[] = ['ped', 'vehicle', 'prop']
+
 export function entityWeight(entity: SceneEntity) {
   if (entity.kind === 'crowd') return entity.crowd?.count ?? 0
-  if (entity.kind === 'sound') return 0
-  return 1
+  return GAME_KINDS.includes(entity.kind) ? 1 : 0
 }
 
 export function sceneWeight(scene: SceneData) {

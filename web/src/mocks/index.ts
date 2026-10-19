@@ -10,6 +10,8 @@ interface MockRow {
 const STORAGE_KEY = 'dwkambience:mock-scenes'
 // Idioma del mock: ?lang=en en la URL para probar el inglés
 const LOCALE = new URLSearchParams(location.search).get('lang') ?? 'es'
+const PTFX = [{ asset: 'core', effect: 'exp_grd_bzgas_smoke' }, { asset: 'core', effect: 'ent_amb_smoke_foundry' }]
+let setPieces: { id: number; name: string; data: unknown }[] = []
 const PRESETS = ['custom', 'beach', 'business', 'club', 'concert', 'gangs', 'paparazzi', 'street']
 
 function load(): MockRow[] {
@@ -108,6 +110,29 @@ const handlers: Record<string, (data: any) => unknown> = {
   pick: () => ({ ok: true, id: null }),
 
   cameraPoint: () => ({ ok: true, pos: randomPos() }),
+
+  record: ({ id, startT }: { id: string; startT: number }) => {
+    window.postMessage({ action: 'recording', data: { active: true, id } }, '*')
+    const keys = [0, 1500, 3000].map((dt, i) => ({ t: startT + dt, pos: [290 + i * 4, -850 + i * 2, 28.8], rot: [0, 0, i * 30] }))
+    setTimeout(() => window.postMessage({ action: 'recording', data: { active: false, id, keys } }, '*'), 1500)
+    return { ok: true }
+  },
+
+  setPieces: () => ({ ok: true, items: setPieces.map(({ id, name }) => ({ id, name })) }),
+  setPieceGet: ({ id }: { id: number }) => {
+    const piece = setPieces.find((p) => p.id === id)
+    return piece ? { ok: true, data: JSON.parse(JSON.stringify(piece.data)) } : { ok: false, error: 'not_found' }
+  },
+  setPieceSave: ({ name, data }: { name: string; data: unknown }) => {
+    const existing = setPieces.find((p) => p.name === name)
+    if (existing) existing.data = data
+    else setPieces.push({ id: setPieces.length + 1, name, data })
+    return { ok: true }
+  },
+  setPieceDelete: ({ id }: { id: number }) => {
+    setPieces = setPieces.filter((p) => p.id !== id)
+    return { ok: true }
+  },
   worldPoint: () => ({ ok: true, pos: randomPos() }),
 
   setActive: ({ id, active }: { id: number; active: boolean }) => {
@@ -149,7 +174,7 @@ const handlers: Record<string, (data: any) => unknown> = {
   },
 
   exit: () => {
-    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60 } }, '*'), 800)
+    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*'), 800)
     return { ok: true }
   },
 }
@@ -162,5 +187,5 @@ export async function mockNui<T>(event: string, data: unknown): Promise<T> {
 
 /** Simula que el cliente abre el editor al cargar la página. */
 export function bootMock() {
-  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60 } }, '*')
+  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*')
 }

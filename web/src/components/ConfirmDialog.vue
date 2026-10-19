@@ -10,6 +10,15 @@ const confirm = useConfirm()
     <div class="dialog" role="dialog" @keydown.esc="confirm.answer(false)">
       <h2>{{ confirm.request.title }}</h2>
       <p class="muted">{{ confirm.request.body }}</p>
+      <input
+        v-if="confirm.request.placeholder !== undefined"
+        v-model="confirm.text"
+        class="text-input"
+        maxlength="64"
+        :placeholder="confirm.request.placeholder"
+        autofocus
+        @keydown.enter="confirm.answer(true)"
+      />
       <div class="actions">
         <button class="btn ghost" @click="confirm.answer(false)">{{ t('cancel') }}</button>
         <button class="btn" :class="confirm.request.danger ? 'danger solid' : 'primary'" @click="confirm.answer(true)">
@@ -26,5 +35,6 @@ const confirm = useConfirm()
 h2 { margin: 0 0 8px; font-size: var(--fs-lg); font-weight: 600; }
 p { margin: 0 0 18px; font-size: var(--fs-sm); line-height: 1.5; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.text-input { width: 100%; margin-bottom: 16px; }
 .btn.danger.solid { background: var(--danger); color: var(--on-accent); }
 </style>

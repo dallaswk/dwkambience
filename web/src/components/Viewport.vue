@@ -28,7 +28,7 @@ function onUp(e: MouseEvent) {
       const x = e.clientX / window.innerWidth
       const y = e.clientY / window.innerHeight
       if (editor.placingPoints && editor.selected?.kind === 'crowd') editor.placePoint(x, y)
-      else editor.pick(x, y)
+      else editor.pick(x, y, e.ctrlKey || e.metaKey)
     }
   }
   downAt = null

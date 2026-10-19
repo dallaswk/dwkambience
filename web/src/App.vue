@@ -61,7 +61,7 @@ function onKey(e: KeyboardEvent) {
     editor.save()
     return
   }
-  if (isTyping(e.target) || editor.previewing) return
+  if (isTyping(e.target) || editor.previewing || editor.recording) return
   if (key === '?') {
     editor.dialog = 'shortcuts'
     return
@@ -84,6 +84,10 @@ function onKey(e: KeyboardEvent) {
     editor.recordKey()
   } else if (key === 'p') {
     editor.preview()
+  } else if (key === 'r' && !mod) {
+    editor.record()
+  } else if (key === 'h' && editor.selectedId) {
+    editor.toggleVisibility(editor.selectedId)
   } else if (key === 'delete' || key === 'backspace') {
     editor.deleteSelection()
   } else if (key === 'f' && editor.selectedId) {
@@ -102,6 +106,7 @@ onMounted(() => {
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
     else if (action === 'preview') editor.onPreview(data as { active: boolean })
+    else if (action === 'recording') editor.onRecording(data as Parameters<typeof editor.onRecording>[0])
     else if (action === 'music') handleMusic(data as MusicMessage)
     else if (action === 'audio3d') handleAudio3D(data as Audio3DMessage)
   })
@@ -121,7 +126,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- Durante la previsualización la UI se oculta (sin desmontarla) para ver la cutscene a pantalla completa -->
-  <div v-if="editor.visible" v-show="!editor.previewing" class="editor" :class="{ 'has-scene': !!editor.scene, 'dev-bg': !inGame }">
+  <div v-if="editor.visible" v-show="!editor.previewing && !editor.recording" class="editor" :class="{ 'has-scene': !!editor.scene, 'dev-bg': !inGame }">
     <TopBar @close-scene="closeScene" @exit="exit" />
 
     <aside class="left">

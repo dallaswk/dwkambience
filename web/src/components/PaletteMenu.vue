@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { loadSounds, type SoundAsset } from '../audio'
-import { CATALOG } from '../catalog'
+import { CATALOG, LIGHT_STYLES, TEXT_STYLES } from '../catalog'
 import { t, tOr } from '../i18n'
 import { useEditor } from '../stores/editor'
 import type { EntityKind } from '../types'
@@ -20,6 +20,9 @@ onMounted(() => loadSounds().then((list) => (sounds.value = list)))
 const source = computed(() => {
   if (props.kind === 'sound') return sounds.value.map((s) => ({ model: s.id, label: s.id }))
   if (props.kind === 'crowd') return editor.crowdPresets.map((p) => ({ model: p, label: tOr(`preset_${p}`, p) }))
+  if (props.kind === 'text') return Object.keys(TEXT_STYLES).map((s) => ({ model: s, label: tOr(`textStyle_${s}`, s) }))
+  if (props.kind === 'light') return Object.keys(LIGHT_STYLES).map((s) => ({ model: s, label: tOr(`lightStyle_${s}`, s) }))
+  if (props.kind === 'ptfx') return editor.ptfxCatalog.map((p) => ({ model: `${p.asset}/${p.effect}`, label: p.effect }))
   return CATALOG[props.kind] ?? []
 })
 
@@ -31,7 +34,7 @@ const items = computed(() => {
 
 // Escribir un modelo a mano solo tiene sentido con modelos del juego
 const custom = computed(() => {
-  if (props.kind === 'sound' || props.kind === 'crowd') return null
+  if (!['ped', 'vehicle', 'prop'].includes(props.kind)) return null
   const q = query.value.trim().toLowerCase()
   return /^[\w-]+$/.test(q) && !items.value.some((i) => i.model === q) ? q : null
 })

@@ -44,6 +44,21 @@ export const CATALOG: Partial<Record<EntityKind, { model: string; label: string 
   ],
 }
 
+// Estilos iniciales de texto y luces (son datos de la escena, no colores de la UI)
+export const TEXT_STYLES: Record<string, { color: [number, number, number]; scale: number; font: number }> = {
+  normal: { color: [255, 255, 255], scale: 1, font: 4 },
+  title: { color: [255, 255, 255], scale: 2.5, font: 4 },
+  accent: { color: [1, 150, 133], scale: 1.5, font: 4 },
+  neon: { color: [255, 60, 200], scale: 1.5, font: 4 },
+}
+
+export const LIGHT_STYLES: Record<string, { type: 'point' | 'spot'; color: [number, number, number]; range: number; intensity: number; shadow: boolean; angle?: number; falloff?: number }> = {
+  warm: { type: 'point', color: [255, 200, 150], range: 10, intensity: 5, shadow: false },
+  cold: { type: 'point', color: [180, 200, 255], range: 10, intensity: 5, shadow: false },
+  spot: { type: 'spot', color: [255, 255, 255], range: 20, intensity: 10, shadow: false, angle: 30, falloff: 2 },
+  spotShadow: { type: 'spot', color: [255, 255, 255], range: 20, intensity: 10, shadow: true, angle: 30, falloff: 2 },
+}
+
 export const WEATHERS = [
   'CLEAR', 'EXTRASUNNY', 'CLOUDS', 'OVERCAST', 'RAIN', 'CLEARING', 'THUNDER',
   'SMOG', 'FOGGY', 'XMAS', 'SNOW', 'SNOWLIGHT', 'BLIZZARD', 'HALLOWEEN', 'NEUTRAL',

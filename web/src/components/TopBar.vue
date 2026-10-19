@@ -8,6 +8,7 @@ import { useTimeline } from '../stores/timeline'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
 import PaletteMenu from './PaletteMenu.vue'
+import SetPieceMenu from './SetPieceMenu.vue'
 
 const editor = useEditor()
 const timeline = useTimeline()
@@ -90,6 +91,9 @@ const menus = computed<Menu[]>(() => {
         item(t('focusCamera'), () => id && editor.focus(id), { shortcut: 'F', disabled: !id }),
         sep,
         item(t('recordKey'), editor.recordKey, { shortcut: 'K', disabled: !canEdit }),
+        item(t('rec'), editor.record, { shortcut: 'R', disabled: !canEdit || !['ped', 'vehicle'].includes(editor.selected?.kind ?? '') }),
+        item(t('toggleVisibility'), () => id && editor.toggleVisibility(id), { shortcut: 'H', disabled: !canEdit || !id }),
+        item(t('saveSetPiece'), editor.saveSetPiece, { disabled: !canEdit || !editor.selectionIds.length }),
         item(t('evFadeOut'), () => editor.addEvent('fade'), { disabled: !canEdit }),
         item(t('evSubtitle'), () => editor.addEvent('subtitle'), { disabled: !canEdit }),
         item(t('evTrigger'), () => editor.addEvent('trigger'), { disabled: !canEdit }),
@@ -133,6 +137,9 @@ const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
   { kind: 'ped', label: 'palettePed' },
   { kind: 'vehicle', label: 'paletteVehicle' },
   { kind: 'prop', label: 'paletteProp' },
+  { kind: 'text', label: 'paletteText' },
+  { kind: 'light', label: 'paletteLight' },
+  { kind: 'ptfx', label: 'palettePtfx' },
   ...(editor.meta?.type === 'ambience'
     ? [{ kind: 'sound' as const, label: 'paletteSound' as const }, { kind: 'crowd' as const, label: 'paletteCrowd' as const }]
     : []),
@@ -141,6 +148,9 @@ const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
 function spawnFrom(kind: EntityKind, model: string) {
   if (kind === 'sound') editor.spawnSound(model)
   else if (kind === 'crowd') editor.spawnCrowd(model)
+  else if (kind === 'text') editor.spawnText(model)
+  else if (kind === 'light') editor.spawnLight(model)
+  else if (kind === 'ptfx') editor.spawnPtfx(model)
   else editor.spawn(kind, model)
 }
 
@@ -206,10 +216,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
           class="btn ghost"
           :class="{ active: open === p.kind }"
           :disabled="!editor.canEdit"
+          :title="t(p.label)"
           @click="toggle(p.kind)"
         >
           <Icon :name="p.kind" :size="15" />
-          {{ t(p.label) }}
+          <span class="palette-label">{{ t(p.label) }}</span>
         </button>
         <PaletteMenu
           :kind="p.kind"
@@ -218,6 +229,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
           @close="open = null"
         />
       </div>
+    </div>
+
+    <div class="menu-root palette-root">
+      <button class="btn ghost" :class="{ active: open === 'setpiece' }" :disabled="!editor.canEdit" :title="t('paletteSetPiece')" @click="toggle('setpiece')">
+        <Icon name="setpiece" :size="15" />
+        <span class="palette-label">{{ t('paletteSetPiece') }}</span>
+      </button>
+      <SetPieceMenu :open="open === 'setpiece'" @close="open = null" />
     </div>
 
     <div v-if="editor.meta" class="center">
@@ -260,6 +279,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 .right { gap: 10px; }
 .brand { font-weight: 700; letter-spacing: 0.02em; margin-right: 10px; }
 .menu-btn { padding: 0 9px; }
+.palette-root .btn { padding: 0 8px; }
+/* En pantallas estrechas las paletas quedan solo con icono (el nombre sigue en el título) */
+@media (max-width: 1750px) {
+  .palette-label { display: none; }
+}
 .divider { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
 .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 .saved { color: var(--text-3); margin-left: 6px; }
