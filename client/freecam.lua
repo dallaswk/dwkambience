@@ -35,6 +35,10 @@ function Freecam.get()
     return pos, rot, fov
 end
 
+function Freecam.setFov(value)
+    fov = math.max(1.0, math.min(130.0, value + 0.0))
+end
+
 function Freecam.set(newPos, newRot)
     pos = newPos
     if newRot then rot = vector3(newRot.x, 0.0, newRot.z) end

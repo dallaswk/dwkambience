@@ -21,7 +21,7 @@ function Select.pick(nx, ny)
     if hit then maxDist = #(hit - camPos) + 0.5 end
 
     local bestId, bestT
-    for id, item in Entities.each() do
+    for id, item in Entities:each() do
         if item.handle and DoesEntityExist(item.handle) then
             local center = GetEntityCoords(item.handle)
             local radius = boundingRadius(item.handle)
@@ -69,7 +69,7 @@ end
 
 function Select.draw()
     local camPos = Freecam.get()
-    for id, item in Entities.each() do
+    for id, item in Entities:each() do
         local handle = item.handle
         if handle and DoesEntityExist(handle) then
             if id == selectedId then drawBox(handle) end

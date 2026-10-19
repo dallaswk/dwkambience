@@ -4,6 +4,10 @@ local isOpen = false
 local camLook = false
 local typing = false
 local currentScene -- id de la escena abierta
+local prepared     -- escena preparada para Evaluate
+local currentT = 0
+local cameraView = false
+local savedCam     -- pose de la free cam antes de entrar en Camera view
 
 local function send(action, data)
     SendNUIMessage({ action = action, data = data })
@@ -44,13 +48,45 @@ local function openEditor()
     CreateThread(editorLoop)
 end
 
+--- Lleva la free cam a la pose de la pista de cámara en t (Camera view)
+local function applyCamera(state)
+    if not cameraView or not state.camera then return end
+    local c = state.camera
+    Freecam.set(vector3(c.pos[1], c.pos[2], c.pos[3]), vector3(c.rot[1], c.rot[2], c.rot[3]))
+    Freecam.setFov(c.fov)
+end
+
+--- Coloca entidades (y cámara en Camera view) en su estado en currentT
+local function applyTime()
+    if not prepared then return end
+    local state = Evaluate.scene(prepared, currentT)
+    Entities:applyState(state)
+    applyCamera(state)
+end
+
+local function setCameraView(active)
+    if active == cameraView then return end
+    cameraView = active
+    if active then
+        local pos, rot, fov = Freecam.get()
+        savedCam = { pos = pos, rot = rot, fov = fov }
+        applyTime()
+    elseif savedCam then
+        Freecam.set(savedCam.pos, savedCam.rot)
+        Freecam.setFov(savedCam.fov)
+        savedCam = nil
+    end
+end
+
 local function closeScene()
     if currentScene then
         lib.callback.await('dwkambience:close', false, currentScene)
     end
     currentScene = nil
-    Entities.clear()
+    prepared = nil
+    Entities:clear()
     Select.set(nil)
+    setCameraView(false)
 end
 
 -- Limpieza local sin hablar con el servidor (válida también en onResourceStop)
@@ -58,7 +94,9 @@ local function teardown()
     isOpen = false
     camLook, typing = false, false
     currentScene = nil
-    Entities.clear()
+    prepared = nil
+    cameraView, savedCam = false, nil
+    Entities:clear()
     Select.set(nil)
     Freecam.stop()
     SetNuiFocus(false, false)
@@ -77,8 +115,10 @@ end
 --- Monta en el mundo una escena recibida del servidor y lleva la cámara a ella.
 local function loadScene(result)
     currentScene = result.meta.id
+    currentT = 0
     Select.set(nil)
-    result.failed = Entities.loadScene(result.data)
+    prepared = Evaluate.prepare(result.data)
+    result.failed = Entities:load(prepared, 0)
 
     local target
     for _, entity in ipairs(result.data.entities or {}) do
@@ -157,12 +197,12 @@ nui('spawnPoint', function(data)
 end)
 
 nui('applyEntity', function(data)
-    local ok, err = Entities.apply(data.entity, data.pos, data.rot)
+    local ok, err = Entities:apply(data.entity, data.pos, data.rot)
     return { ok = ok, error = err }
 end)
 
 nui('removeEntity', function(data)
-    Entities.remove(data.id)
+    Entities:remove(data.id)
     if Select.get() == data.id then Select.set(nil) end
 end)
 
@@ -177,12 +217,12 @@ nui('pick', function(data)
 end)
 
 nui('ground', function(data)
-    local pos, rot = Entities.ground(data.id)
+    local pos, rot = Entities:ground(data.id)
     return { ok = pos ~= nil, pos = pos, rot = rot }
 end)
 
 nui('gizmo', function(data)
-    local handle = Entities.handle(data.id)
+    local handle = Entities:handle(data.id)
     if not handle or Gizmo.isRunning() then return { ok = false, error = 'unavailable' } end
 
     CreateThread(function()
@@ -190,13 +230,13 @@ nui('gizmo', function(data)
         send('gizmo', { active = true, id = data.id })
         local confirmed = Gizmo.run(handle, data.mode)
         if isOpen then setFocus() end
-        local pos, rot = Entities.transform(data.id)
+        local pos, rot = Entities:transform(data.id)
         send('gizmo', { active = false, id = data.id, confirmed = confirmed, pos = pos, rot = rot })
     end)
 end)
 
 nui('focus', function(data)
-    local handle = Entities.handle(data.id)
+    local handle = Entities:handle(data.id)
     if not handle then return { ok = false } end
     local min, max = GetModelDimensions(GetEntityModel(handle))
     Freecam.lookAt(GetEntityCoords(handle), math.max(4.0, #(max - min) * 1.5))
@@ -215,8 +255,55 @@ nui('labels', function(data)
     Select.setLabels(data.enabled == true)
 end)
 
+-- Timeline -------------------------------------------------------------------
+
+-- La NUI manda la escena entera cuando cambia (con debounce) para reevaluar en el cliente
+nui('syncScene', function(data)
+    if type(data.data) ~= 'table' then return { ok = false } end
+    prepared = Evaluate.prepare(data.data)
+    Entities:sync(prepared, currentT)
+    applyCamera(Evaluate.scene(prepared, currentT))
+end)
+
+-- Scrub y reproducción en el editor: como mucho 60 mensajes/s desde la NUI
+nui('time', function(data)
+    currentT = math.max(0, math.floor(tonumber(data.t) or 0))
+    applyTime()
+end)
+
+nui('cameraView', function(data)
+    setCameraView(data.active == true)
+end)
+
+nui('cameraPose', function()
+    local pos, rot, fov = Freecam.get()
+    return { ok = true, pos = Util.vecToArray(pos, 3), rot = Util.vecToArray(rot, 2), fov = Util.round(fov, 1) }
+end)
+
+nui('pose', function(data)
+    local pos, rot = Entities:transform(data.id)
+    return { ok = pos ~= nil, pos = pos, rot = rot }
+end)
+
+-- Duración de una animación (ms), necesaria para crear su clip en la pista
+nui('animInfo', function(data)
+    if type(data.dict) ~= 'string' or type(data.clip) ~= 'string' or not DoesAnimDictExist(data.dict) then
+        return { ok = false, error = 'invalid_anim' }
+    end
+    local ok = pcall(lib.requestAnimDict, data.dict, 5000)
+    if not ok then return { ok = false, error = 'invalid_anim' } end
+    local seconds = GetAnimDuration(data.dict, data.clip)
+    RemoveAnimDict(data.dict)
+    if not seconds or seconds <= 0 then return { ok = false, error = 'invalid_anim' } end
+    return { ok = true, length = math.floor(seconds * 1000) }
+end)
+
 RegisterNetEvent('dwkambience:openEditor', openEditor)
 
 AddEventHandler('onResourceStop', function(resource)
     if resource == GetCurrentResourceName() and isOpen then teardown() end
 end)
+
+Editor = {
+    isOpen = function() return isOpen end,
+}
