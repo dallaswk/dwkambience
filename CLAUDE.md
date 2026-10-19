@@ -47,6 +47,7 @@ dwkambience/
 - `cd web && npm install && npm run dev`: NUI en el navegador con mocks de los callbacks (`web/src/mocks/`), para iterar la UI sin el juego.
 - `cd web && npm run build`: genera `web/dist` (hay que hacerlo antes de reiniciar el recurso).
 - `lua tests/run.lua` (desde la raíz): tests de `shared/` sin el juego.
+- `cd web && npm test`: tests de la NUI (Vitest + jsdom), incluido un recorrido del editor contra los mocks.
 - En el servidor: `refresh` + `ensure dwkambience` desde la consola de txAdmin.
 
 ## Cómo trabajar
