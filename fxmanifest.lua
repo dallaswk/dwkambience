@@ -30,6 +30,7 @@ client_scripts {
     'client/freecam.lua',
     'client/crowds.lua',
     'client/audio.lua',
+    'client/fx.lua',
     'client/pool.lua',
     'client/select.lua',
     'client/gizmo.lua',

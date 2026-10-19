@@ -170,9 +170,11 @@ CreateThread(function()
             local clock = GetGameTimer()
             local pos = GetEntityCoords(PlayerPedId())
 
+            local camPos = GetFinalRenderedCamCoord()
             for _, rt in pairs(live) do
                 if not rt.loading then
                     rt.pool:applyState(Evaluate.scene(rt.prepared, now % rt.duration))
+                    rt.pool:drawFx(camPos)
                 end
             end
 

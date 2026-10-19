@@ -53,6 +53,7 @@ local function editorLoop()
         end
         HideHudAndRadarThisFrame()
         Select.draw()
+        Entities:drawFx(Freecam.get())
         Wait(0)
         ::continue::
     end
@@ -394,6 +395,7 @@ nui('preview', function(data)
 
     local hidden = {}
     for _, item in Entities:each() do
+        Fx.stopPtfx(item) -- se vuelven a encender solas al acabar (drawFx)
         if item.handle and DoesEntityExist(item.handle) then
             SetEntityVisible(item.handle, false, false)
             hidden[#hidden + 1] = item.handle

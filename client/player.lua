@@ -25,6 +25,7 @@ end
 local function preloadModels(data, deadline)
     local hashes = {}
     for _, entity in ipairs(data.entities or {}) do
+        if entity.kind == 'ptfx' and entity.ptfx then RequestNamedPtfxAsset(entity.ptfx.asset) end
         if entity.kind == 'ped' or entity.kind == 'vehicle' or entity.kind == 'prop' then
             local hash = joaat(entity.model)
             if IsModelInCdimage(hash) then
@@ -195,6 +196,7 @@ local function run(payload, onEnd)
         end
 
         DisableAllControlActions(0)
+        a.pool:drawFx(GetFinalRenderedCamCoord())
         drawOverlay(state, settings, debug, t)
 
         if a.skippable and IsDisabledControlJustPressed(0, Config.Playback.skipControl) then

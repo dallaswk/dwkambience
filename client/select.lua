@@ -35,7 +35,7 @@ function Select.pick(nx, ny)
     for id, item in Entities:each() do
         if item.handle and DoesEntityExist(item.handle) then
             test(id, GetEntityCoords(item.handle), boundingRadius(item.handle))
-        elseif item.kind == 'sound' and item.pos then
+        elseif (item.kind == 'sound' or item.kind == 'text' or item.kind == 'light' or item.kind == 'ptfx') and item.pos then
             test(id, vector3(item.pos[1], item.pos[2], item.pos[3]), 0.8)
         elseif item.crowdSet then
             for _, ped in item.crowdSet:each() do
@@ -122,6 +122,15 @@ function Select.draw()
         elseif item.kind == 'sound' then
             drawSound(item, id == selectedId)
             if showLabels and item.pos then Util.drawText3D(vector3(item.pos[1], item.pos[2], item.pos[3] + 0.5), item.label or id) end
+        elseif (item.kind == 'light' or item.kind == 'ptfx' or item.kind == 'text') and item.pos then
+            -- Marcador para poder ver y seleccionar efectos (las luces con su color)
+            local p = item.pos
+            local c = item.kind == 'light' and item.def.color or { 255, 255, 255 }
+            local selected = id == selectedId
+            if item.kind ~= 'text' or selected then
+                DrawMarker(28, p[1], p[2], p[3], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, c[1], c[2], c[3], selected and 230 or 110, false, false, 2, false, nil, nil, false)
+            end
+            if showLabels and item.kind ~= 'text' then Util.drawText3D(vector3(p[1], p[2], p[3] + 0.45), item.label or id) end
         end
     end
     for id, item in Entities:each() do

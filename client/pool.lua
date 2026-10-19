@@ -93,6 +93,19 @@ function EntityPool:apply(entity, pos, rot)
         return true
     end
 
+    -- Texto, luz y partículas: sin entidad de juego; Fx.drawPool los dibuja cada frame
+    if entity.kind == 'text' or entity.kind == 'light' or entity.kind == 'ptfx' then
+        local def = entity[entity.kind]
+        if current and entity.kind == 'ptfx' and json.encode(current.def) ~= json.encode(def) then Fx.stopPtfx(current) end
+        self.items[entity.id] = {
+            kind = entity.kind, label = entity.label, props = {}, def = def,
+            pos = pos or (current and current.pos), rot = rot or (current and current.rot),
+            visible = not current or current.visible ~= false,
+            ptfxHandle = current and current.ptfxHandle, ptfxKey = current and current.ptfxKey,
+        }
+        return true
+    end
+
     -- Multitud: sus personas se crean por distancia en updateCrowds; se rehace si cambia su definición
     if entity.kind == 'crowd' then
         local key = json.encode(entity.crowd)
@@ -137,7 +150,7 @@ function EntityPool:setPose(id, pos, rot)
     local item = self.items[id]
     if not item or not pos then return end
     if not item.handle then
-        item.pos = pos
+        item.pos, item.rot = pos, rot
         return
     end
     SetEntityCoordsNoOffset(item.handle, pos[1] + 0.0, pos[2] + 0.0, pos[3] + 0.0, false, false, false)
@@ -186,7 +199,22 @@ function EntityPool:applyState(state)
     for id, s in pairs(state.entities) do
         if s.pos then self:setPose(id, s.pos, s.rot) end
         self:setAnim(id, s.anim)
+        self:setVisible(id, s.visible ~= false)
     end
+end
+
+function EntityPool:setVisible(id, visible)
+    local item = self.items[id]
+    if not item or item.visible == visible then return end
+    item.visible = visible
+    if item.handle and DoesEntityExist(item.handle) then
+        SetEntityVisible(item.handle, visible, false)
+        SetEntityCollision(item.handle, visible, false)
+    end
+end
+
+function EntityPool:drawFx(camPos)
+    Fx.drawPool(self, camPos)
 end
 
 --- Crea las entidades de una escena en su pose en t. Devuelve las etiquetas que no se pudieron crear.
@@ -227,6 +255,7 @@ function EntityPool:remove(id)
     local item = self.items[id]
     if not item then return end
     if item.crowdSet then item.crowdSet:clear() end
+    Fx.stopPtfx(item)
     if item.handle and DoesEntityExist(item.handle) then
         SetEntityAsMissionEntity(item.handle, true, true)
         DeleteEntity(item.handle)
