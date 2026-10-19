@@ -166,6 +166,7 @@ export interface SceneMeta {
 export interface Studio {
   label: string
   maxEntities: number
+  maxNetworked?: number
 }
 
 export interface Result {

@@ -100,3 +100,17 @@ test('rdp: toKeys desplaza al instante de inicio y mantiene la pose', function()
         return d
     end)()), 'las keys grabadas pasan la validación')
 end)
+
+test('entidades en red: solo del juego y con límite', function()
+    local data = Scene.new('ambience')
+    data.entities = {
+        { id = 'veh_1', kind = 'vehicle', model = 'elegy', label = 'A', props = { vehicleType = 'automobile' }, networked = true },
+        { id = 'veh_2', kind = 'vehicle', model = 'sultan', label = 'B', props = {}, networked = true },
+    }
+    assert(Scene.sanitize(data), 'dos en red sin límite')
+    local clean, err = Scene.sanitize(data, { maxNetworked = 1 })
+    eq(clean, nil, 'pasa el límite'); eq(err, 'too_many_networked', 'error')
+    eq(select(2, Scene.sanitize(data, { maxNetworked = 0 })), 'too_many_networked', 'cutscene sin red')
+    data.entities = { { id = 'snd_1', kind = 'sound', label = 'S', props = {}, networked = true, sound = { asset = 'a', volume = 1, range = 10, loop = true } } }
+    eq(Scene.sanitize(data), nil, 'un sonido no puede ir en red')
+end)

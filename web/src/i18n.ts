@@ -343,6 +343,10 @@ const en = {
   imported: 'Scene “{name}” imported',
   errInvalidJson: 'This is not valid JSON',
   errNotAScene: 'This is not a dwkambience scene',
+  network: 'Network',
+  networked: 'Networked (players can interact)',
+  networkedHint: 'Created once by the server while someone is in the zone; stays in its initial pose (does not follow tracks). {n}/{max} in this ambience.',
+  networkLimit: 'Network limit reached: the rest of the entities are only visible to each player',
 
   cancel: 'Cancel',
   discardTitle: 'Discard unsaved changes?',
@@ -714,6 +718,10 @@ const es: Record<MessageKey, string> = {
   imported: 'Escena «{name}» importada',
   errInvalidJson: 'No es un JSON válido',
   errNotAScene: 'No es una escena de dwkambience',
+  network: 'Red',
+  networked: 'En red (los jugadores pueden interactuar)',
+  networkedHint: 'La crea el servidor una sola vez mientras haya alguien en la zona; se queda en su pose inicial (no sigue las pistas). {n}/{max} en este ambience.',
+  networkLimit: 'Límite de red alcanzado: el resto de entidades solo las ve cada jugador en local',
 
   cancel: 'Cancelar',
   discardTitle: '¿Descartar los cambios?',

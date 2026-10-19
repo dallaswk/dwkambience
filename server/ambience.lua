@@ -42,11 +42,20 @@ function Ambience.refresh(id)
         end
     end
     broadcast()
+    NetEnts.reset(id)
 end
 
 function Ambience.remove(id)
     index[id], cache[id] = nil, nil
     broadcast()
+    NetEnts.reset(id)
+end
+
+--- Entrada del índice y datos de un ambience con zona, o nil
+function Ambience.get(id)
+    local entry = index[id]
+    local cached = cache[id]
+    return entry, cached and cached.data
 end
 
 CreateThread(function()

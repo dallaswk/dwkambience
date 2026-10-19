@@ -50,6 +50,7 @@ server_scripts {
     'server/playback.lua',
     'server/ambience.lua',
     'server/assets.lua',
+    'server/netents.lua',
     'server/main.lua',
 }
 

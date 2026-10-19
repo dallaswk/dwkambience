@@ -30,6 +30,7 @@ local function stop(id)
     local rt = live[id]
     if not rt then return end
     live[id] = nil
+    TriggerServerEvent('dwkambience:ambiencePresence', id, false)
     if rt.pool then rt.pool:clear() end
     Audio3D.clear(group(id))
     SendNUIMessage({ action = 'music', data = { group = group(id), state = 'stop' } })
@@ -46,6 +47,7 @@ end
 local function start(id, entry)
     local rt = { entry = entry, loading = true }
     live[id] = rt
+    TriggerServerEvent('dwkambience:ambiencePresence', id, true)
 
     CreateThread(function()
         local cached = cache[id]
@@ -63,7 +65,7 @@ local function start(id, entry)
         rt.prepared = Evaluate.prepare(cached.data)
         rt.settings = cached.data.settings
         rt.duration = math.max(Scene.stats(cached.data).durationMs, 1000)
-        rt.pool = EntityPool.new()
+        rt.pool = EntityPool.new({ skipNetworked = true })
         rt.pool:load(rt.prepared, GetNetworkTimeAccurate() % rt.duration)
         rt.loading = false
 

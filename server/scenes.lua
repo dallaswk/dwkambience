@@ -52,6 +52,7 @@ local function studioLimits(studioId, sceneType)
         maxDurationMs = Config.Limits.maxDurationMs,
         maxCrowd = Config.Ambience.maxPedsPerAmbience,
         maxPeds = ambience and Config.Ambience.maxPedsPerAmbience or nil,
+        maxNetworked = ambience and (studio.maxNetworked or 0) or 0, -- las cutscenes son siempre locales
     }
 end
 
@@ -150,7 +151,7 @@ register('dwkambience:save', function(src, payload)
 
     local data
     data, err = Scene.sanitize(payload.data, studioLimits(row.studio, row.type))
-    if not data then return fail((err == 'too_many_entities' or err == 'too_many_peds') and err or ('invalid: ' .. err)) end
+    if not data then return fail((err == 'too_many_entities' or err == 'too_many_peds' or err == 'too_many_networked') and err or ('invalid: ' .. err)) end
     -- El interruptor on/off solo se cambia con dwkambience:setActive; el guardado conserva el valor actual
     data.settings.active = row.active == 1 or row.active == true
 

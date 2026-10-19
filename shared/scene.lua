@@ -32,6 +32,7 @@ local DEFAULT_LIMITS = {
     maxDurationMs = 30 * 60 * 1000,
     maxCrowd = 60,
     maxPeds = nil, -- límite de peds (actores + multitudes); el servidor lo fija para los ambiences
+    maxNetworked = nil, -- entidades en red (solo ambiences; 0 = ninguna)
 }
 
 local ID_PATTERN = '^[%w_%-]+$'
@@ -356,6 +357,8 @@ local function cleanEntity(e, i, limits)
     if e.networked ~= nil and type(e.networked) ~= 'boolean' then return nil, path .. '.networked' end
 
     local out = { id = id, kind = e.kind, label = label, props = props, networked = e.networked == true }
+    -- Solo las entidades del juego pueden ir en red (las crea el servidor para que se pueda interactuar)
+    if out.networked and not Scene.GAME_KINDS[e.kind] then return nil, path .. '.networked' end
 
     if Scene.GAME_KINDS[e.kind] then
         out.model = cleanString(e.model, 64, MODEL_PATTERN)
@@ -557,7 +560,7 @@ function Scene.sanitize(data, limits)
 
     local entities, entityIds = {}, {}
     if data.entities ~= nil and not isArray(data.entities) then return nil, 'entities' end
-    local weight, peds = 0, 0
+    local weight, peds, networked = 0, 0, 0
     for i, e in ipairs(data.entities or {}) do
         local clean
         clean, err = cleanEntity(e, i, limits)
@@ -572,6 +575,10 @@ function Scene.sanitize(data, limits)
         if clean.kind == 'ped' or clean.kind == 'crowd' then peds = peds + w end
         if weight > limits.maxEntities then return nil, 'too_many_entities' end
         if limits.maxPeds and peds > limits.maxPeds then return nil, 'too_many_peds' end
+        if clean.networked then
+            networked = networked + 1
+            if limits.maxNetworked and networked > limits.maxNetworked then return nil, 'too_many_networked' end
+        end
     end
 
     local tracks, trackIds = {}, {}

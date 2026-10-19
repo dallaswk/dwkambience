@@ -11,7 +11,7 @@ Config.Command = 'scenes'
 
 -- Límite de entidades por estudio (el MVP usa solo uno)
 Config.Studios = {
-    [1] = { label = 'Studio 1', maxEntities = 300 },
+    [1] = { label = 'Studio 1', maxEntities = 300, maxNetworked = 20 }, -- maxNetworked: entidades en red de un ambience
 }
 Config.DefaultStudio = 1
 

@@ -412,6 +412,19 @@ nui('record', function(data)
     return { ok = true }
 end)
 
+-- Tipo de vehículo para crearlo en red desde el servidor (CreateVehicleServerSetter lo necesita)
+nui('vehicleType', function(data)
+    local hash = joaat(data.model or '')
+    if not IsModelInCdimage(hash) then return { ok = false } end
+    local vtype = 'automobile'
+    if IsThisModelABike(hash) or IsThisModelABicycle(hash) or IsThisModelAQuadbike(hash) then vtype = 'bike'
+    elseif IsThisModelABoat(hash) or IsThisModelAJetski(hash) then vtype = 'boat'
+    elseif IsThisModelAHeli(hash) then vtype = 'heli'
+    elseif IsThisModelAPlane(hash) then vtype = 'plane'
+    elseif IsThisModelATrain(hash) then vtype = 'train' end
+    return { ok = true, type = vtype }
+end)
+
 -- Exportar / importar
 nui('export', function(data)
     return lib.callback.await('dwkambience:export', false, data.id)

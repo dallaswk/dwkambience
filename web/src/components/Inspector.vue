@@ -168,6 +168,15 @@ function toggleDoor(door: number) {
           />
         </section>
 
+        <section v-if="isGameEntity && editor.meta?.type === 'ambience'">
+          <div class="section-title">{{ t('network') }}</div>
+          <label class="switch">
+            <input type="checkbox" :checked="entity.networked" :disabled="disabled" @change="editor.setNetworked(entity.id, ($event.target as HTMLInputElement).checked)" />
+            {{ t('networked') }}
+          </label>
+          <p class="note">{{ t('networkedHint', { n: editor.networkedCount, max: editor.maxNetworked }) }}</p>
+        </section>
+
         <section v-if="text3d">
           <div class="section-title">{{ t('kindText') }}</div>
           <label class="field column">

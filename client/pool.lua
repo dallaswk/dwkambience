@@ -7,8 +7,9 @@ local pools = setmetatable({}, { __mode = 'k' })
 
 local VEHICLE_DOORS = 5 -- 0 FL, 1 FR, 2 RL, 3 RR, 4 capó, 5 maletero
 
-function EntityPool.new()
-    local pool = setmetatable({ items = {} }, EntityPool)
+--- opts.skipNetworked: no crear las entidades marcadas en red (las crea el servidor en los ambiences)
+function EntityPool.new(opts)
+    local pool = setmetatable({ items = {}, skipNetworked = opts and opts.skipNetworked }, EntityPool)
     pools[pool] = true
     return pool
 end
@@ -81,6 +82,7 @@ end
 --- Crea o actualiza una entidad para que coincida con su definición. pos/rot son arrays {x, y, z}.
 --- Devuelve true o false, error.
 function EntityPool:apply(entity, pos, rot)
+    if self.skipNetworked and entity.networked then return true end
     local current = self.items[entity.id]
     if current and (current.model ~= entity.model or current.kind ~= entity.kind) then
         self:remove(entity.id)

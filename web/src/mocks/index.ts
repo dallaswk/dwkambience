@@ -108,6 +108,7 @@ const handlers: Record<string, (data: any) => unknown> = {
     /^[\w-]+$/.test(model) ? { ok: true, pos: randomPos(), rot: [0, 0, +(Math.random() * 360).toFixed(2)] } : { ok: false, error: 'invalid_model' },
 
   pick: () => ({ ok: true, id: null }),
+  vehicleType: () => ({ ok: true, type: 'automobile' }),
 
   export: ({ id }: { id: number }) => {
     const row = rows.find((r) => r.meta.id === id)
@@ -191,7 +192,7 @@ const handlers: Record<string, (data: any) => unknown> = {
   },
 
   exit: () => {
-    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*'), 800)
+    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300, maxNetworked: 20 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*'), 800)
     return { ok: true }
   },
 }
@@ -204,5 +205,5 @@ export async function mockNui<T>(event: string, data: unknown): Promise<T> {
 
 /** Simula que el cliente abre el editor al cargar la página. */
 export function bootMock() {
-  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*')
+  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300, maxNetworked: 20 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60, ptfx: PTFX } }, '*')
 }

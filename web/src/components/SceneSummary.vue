@@ -122,6 +122,8 @@ function onTime(e: Event) {
       <div class="grid">
         <label>{{ t('peds') }}</label>
         <span class="value mono" :class="{ warn: editor.pedCount >= editor.maxPedsPerAmbience }">{{ editor.pedCount }} / {{ editor.maxPedsPerAmbience }}</span>
+        <label>{{ t('network') }}</label>
+        <span class="value mono" :class="{ warn: editor.networkedCount >= editor.maxNetworked }">{{ editor.networkedCount }} / {{ editor.maxNetworked }}</span>
         <template v-if="trigger">
           <label>{{ t('zoneEnter') }}</label>
           <input type="number" min="5" max="1000" step="5" :value="trigger.enter" :disabled="editor.readOnly" @change="editor.setTrigger({ enter: Math.max(5, num($event)) })" />

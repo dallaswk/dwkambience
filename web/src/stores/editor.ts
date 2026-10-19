@@ -32,6 +32,7 @@ const ERRORS: Record<string, MessageKey> = {
   spawn_failed: 'errSpawnFailed',
   too_many_entities: 'errTooManyEntities',
   too_many_peds: 'errTooManyPeds',
+  too_many_networked: 'networkLimit',
   not_ambience: 'errNotAmbience',
   too_large: 'errTooLarge',
   corrupt_scene: 'errCorrupt',
@@ -108,6 +109,8 @@ export const useEditor = defineStore('editor', () => {
   // Cada persona de una multitud cuenta para el límite del estudio
   const entityCount = computed(() => (scene.value ? sceneWeight(scene.value) : 0))
   const pedCount = computed(() => (scene.value ? scenePeds(scene.value) : 0))
+  const networkedCount = computed(() => scene.value?.entities.filter((e) => e.networked).length ?? 0)
+  const maxNetworked = computed(() => studio.value?.maxNetworked ?? 0)
   const selected = computed<SceneEntity | null>(() => scene.value?.entities.find((e) => e.id === selectedId.value) ?? null)
   const canEdit = computed(() => !!scene.value && !readOnly.value)
 
@@ -608,6 +611,22 @@ export const useEditor = defineStore('editor', () => {
     loadSetPieces()
   }
 
+  /** Pone o quita una entidad en red. Por encima del límite avisa y la deja local. */
+  async function setNetworked(id: string, networked: boolean) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity || !canEdit.value) return
+    if (networked && networkedCount.value >= maxNetworked.value) {
+      toasts.push(t('networkLimit'), 'warning', 6000)
+      return
+    }
+    let props = entity.props
+    if (networked && entity.kind === 'vehicle') {
+      const result = await fetchNui<Result & { type: string }>('vehicleType', { model: entity.model })
+      props = { ...props, vehicleType: result?.ok ? result.type : 'automobile' }
+    }
+    updateEntity(id, { networked, props })
+  }
+
   // --- Exportar / importar ------------------------------------------------------------
 
   /** Exporta la escena abierta (con los cambios sin guardar) o, con id, una de la lista */
@@ -910,7 +929,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
-    transfer, exportScene, openImport, importScene,
+    transfer, exportScene, openImport, importScene, networkedCount, maxNetworked, setNetworked,
     ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,
     toggleVisibility, record, onRecording, toggleMulti, loadSetPieces, saveSetPiece, insertSetPiece, deleteSetPiece,
     crowdPresets, maxPedsPerAmbience, placingPoints, pedCount, spawnSound, spawnCrowd, updateCrowd, regenerateCrowd,

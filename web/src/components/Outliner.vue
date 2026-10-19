@@ -52,6 +52,7 @@ function onClick(entity: SceneEntity, e: MouseEvent) {
         >
           <Icon :name="entity.kind" :size="14" />
           <span class="label">{{ entity.label }}</span>
+          <span v-if="entity.networked" class="net" :title="t('networked')">NET</span>
           <span class="model mono faint">{{ entity.model }}</span>
         </button>
       </div>
@@ -82,6 +83,7 @@ function onClick(entity: SceneEntity, e: MouseEvent) {
 }
 .item:hover { background: var(--surface-2); color: var(--text); }
 .item.selected { background: var(--accent-soft); color: var(--accent); }
+.net { font-size: 9px; font-weight: 700; color: var(--text-3); letter-spacing: 0.05em; }
 .item.multi { background: var(--surface-3); color: var(--text); }
 .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); }
 .model { font-size: var(--fs-xs); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
