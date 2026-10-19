@@ -3,14 +3,15 @@
 
 Scene = Scene or {}
 
-Scene.SCHEMA = 3
+Scene.SCHEMA = 4
 
 Scene.TYPES = { cutscene = true, ambience = true }
-Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true }
-Scene.CHANNELS = { transform = true, anim = true, camera = true, audio = true, event = true }
+Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true, text = true, light = true, ptfx = true }
+Scene.CHANNELS = { transform = true, anim = true, camera = true, audio = true, event = true, visibility = true }
 Scene.EASES = { linear = true, ['in'] = true, out = true, inOut = true, spline = true }
 Scene.EVENT_TYPES = { fade = true, subtitle = true, trigger = true }
 Scene.FACINGS = { random = true, along = true, point = true }
+Scene.LIGHT_TYPES = { point = true, spot = true }
 
 -- Tipos con entidad de juego (necesitan modelo); sound y crowd se definen por sus propios campos
 Scene.GAME_KINDS = { ped = true, vehicle = true, prop = true }
@@ -71,6 +72,8 @@ Scene.MIGRATIONS = {
     [1] = function(data) return data end,
     -- 2 -> 3: campos crowd y sound en entidades, settings.timecycle y modelo opcional en sound/crowd.
     [2] = function(data) return data end,
+    -- 3 -> 4: tipos text, light y ptfx, y el canal visibility.
+    [3] = function(data) return data end,
 }
 
 --- Lleva un documento al schema actual. Devuelve data o nil, error.
@@ -274,6 +277,72 @@ local function cleanSound(snd, path)
     return { asset = asset, volume = volume, range = range, loop = snd.loop ~= false }
 end
 
+local function cleanColor(c)
+    if not isArray(c) or #c ~= 3 then return nil end
+    local out = {}
+    for i = 1, 3 do
+        if math.type(c[i]) ~= 'integer' and not (isFinite(c[i]) and c[i] % 1 == 0) then return nil end
+        out[i] = math.tointeger(c[i])
+        if out[i] < 0 or out[i] > 255 then return nil end
+    end
+    return out
+end
+
+local function inRange(v, min, max)
+    return isFinite(v) and v >= min and v <= max
+end
+
+local function cleanText(tx, path)
+    if type(tx) ~= 'table' then return nil, path end
+    local content = cleanString(tx.content, 200)
+    if not content then return nil, path .. '.content' end
+    local color = cleanColor(tx.color or { 255, 255, 255 })
+    if not color then return nil, path .. '.color' end
+    local scale = tx.scale == nil and 1.0 or tx.scale
+    if not inRange(scale, 0.1, 5) then return nil, path .. '.scale' end
+    local font = tx.font == nil and 4 or tx.font
+    if math.type(font) ~= 'integer' and not (isFinite(font) and font % 1 == 0) then return nil, path .. '.font' end
+    if font < 0 or font > 8 then return nil, path .. '.font' end
+    for _, k in ipairs({ 'outline', 'backface' }) do
+        if tx[k] ~= nil and type(tx[k]) ~= 'boolean' then return nil, path .. '.' .. k end
+    end
+    return { content = content, color = color, scale = scale, font = math.tointeger(font), outline = tx.outline ~= false, backface = tx.backface == true }
+end
+
+local function cleanLight(l, path)
+    if type(l) ~= 'table' then return nil, path end
+    local kind = l.type or 'point'
+    if not Scene.LIGHT_TYPES[kind] then return nil, path .. '.type' end
+    local color = cleanColor(l.color or { 255, 255, 255 })
+    if not color then return nil, path .. '.color' end
+    if not inRange(l.range, 0.5, 100) then return nil, path .. '.range' end
+    if not inRange(l.intensity, 0, 50) then return nil, path .. '.intensity' end
+    if l.shadow ~= nil and type(l.shadow) ~= 'boolean' then return nil, path .. '.shadow' end
+    local out = { type = kind, color = color, range = l.range, intensity = l.intensity, shadow = l.shadow == true }
+    if kind == 'spot' then
+        if not inRange(l.angle, 1, 90) then return nil, path .. '.angle' end
+        local falloff = l.falloff == nil and 1.0 or l.falloff
+        if not inRange(falloff, 0, 50) then return nil, path .. '.falloff' end
+        out.angle, out.falloff = l.angle, falloff
+    end
+    return out
+end
+
+local function cleanPtfx(p, path)
+    if type(p) ~= 'table' then return nil, path end
+    local asset = cleanString(p.asset, 64, ID_PATTERN)
+    local effect = cleanString(p.effect, 64, ID_PATTERN)
+    if not asset or not effect then return nil, path .. '.asset/effect' end
+    local scale = p.scale == nil and 1.0 or p.scale
+    if not inRange(scale, 0.1, 10) then return nil, path .. '.scale' end
+    local out = { asset = asset, effect = effect, scale = scale }
+    if p.color ~= nil then
+        out.color = cleanColor(p.color)
+        if not out.color then return nil, path .. '.color' end
+    end
+    return out
+end
+
 local function cleanEntity(e, i, limits)
     local path = ('entities[%d]'):format(i)
     if type(e) ~= 'table' then return nil, path end
@@ -297,6 +366,15 @@ local function cleanEntity(e, i, limits)
     elseif e.kind == 'sound' then
         out.sound, err = cleanSound(e.sound, path .. '.sound')
         if not out.sound then return nil, err end
+    elseif e.kind == 'text' then
+        out.text, err = cleanText(e.text, path .. '.text')
+        if not out.text then return nil, err end
+    elseif e.kind == 'light' then
+        out.light, err = cleanLight(e.light, path .. '.light')
+        if not out.light then return nil, err end
+    elseif e.kind == 'ptfx' then
+        out.ptfx, err = cleanPtfx(e.ptfx, path .. '.ptfx')
+        if not out.ptfx then return nil, err end
     end
 
     return out
@@ -392,6 +470,13 @@ local function cleanAnimClip(c, limits, path)
     return { start = start, dict = dict, clip = clip, length = length, duration = duration, loop = c.loop == true }
 end
 
+local function cleanVisibilityKey(k, limits, path)
+    local t = cleanTimeMs(k.t, limits)
+    if not t then return nil, path .. '.t' end
+    if type(k.visible) ~= 'boolean' then return nil, path .. '.visible' end
+    return { t = t, visible = k.visible }
+end
+
 -- Target válido para cada canal
 local function targetAllowed(channel, target, entityIds)
     if channel == 'camera' then return target == 'camera' end
@@ -431,9 +516,14 @@ local function cleanTrack(tr, i, entityIds, limits)
         if not out.clips then return nil, err end
         table.sort(out.clips, function(a, b) return a.start < b.start end)
     else
-        local cleaner = tr.channel == 'event'
-            and function(k, p) return cleanEventKey(k, limits, p) end
-            or function(k, p) return cleanPoseKey(k, tr.channel, limits, p) end
+        local cleaner
+        if tr.channel == 'event' then
+            cleaner = function(k, p) return cleanEventKey(k, limits, p) end
+        elseif tr.channel == 'visibility' then
+            cleaner = function(k, p) return cleanVisibilityKey(k, limits, p) end
+        else
+            cleaner = function(k, p) return cleanPoseKey(k, tr.channel, limits, p) end
+        end
         out.keys, err = cleanList(tr.keys, limits, path, 'keys', cleaner)
         if not out.keys then return nil, err end
 
@@ -511,7 +601,8 @@ end
 --- Cuántas entidades de juego representa (una multitud cuenta tantas como personas)
 function Scene.entityWeight(entity)
     if entity.kind == 'crowd' then return entity.crowd and entity.crowd.count or 0 end
-    if entity.kind == 'sound' then return 0 end
+    -- Sonido, texto, luz y partículas no son entidades del juego (no cuentan para el límite)
+    if not Scene.GAME_KINDS[entity.kind] then return 0 end
     return 1
 end
 

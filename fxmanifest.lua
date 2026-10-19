@@ -20,6 +20,7 @@ shared_scripts {
     'shared/interp.lua',
     'shared/evaluate.lua',
     'shared/crowd.lua',
+    'shared/rdp.lua',
     'shared/scene.lua',
 }
 

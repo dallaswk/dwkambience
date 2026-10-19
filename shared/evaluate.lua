@@ -13,6 +13,7 @@ function Evaluate.prepare(data)
         camera = nil,   -- keys
         events = {},    -- keys de todos los tracks de eventos, ordenadas
         audio = {},     -- [target] = clips
+        visibility = {}, -- [entityId] = keys
     }
     for _, tr in ipairs(data.tracks or {}) do
         if tr.channel == 'transform' then
@@ -25,6 +26,8 @@ function Evaluate.prepare(data)
             for _, k in ipairs(tr.keys or {}) do p.events[#p.events + 1] = k end
         elseif tr.channel == 'audio' then
             p.audio[tr.target] = tr.clips or {}
+        elseif tr.channel == 'visibility' then
+            p.visibility[tr.target] = tr.keys or {}
         end
     end
     table.sort(p.events, function(a, b) return a.t < b.t end)
@@ -63,6 +66,13 @@ function Evaluate.anim(clips, t)
     return { dict = active.dict, clip = active.clip, phase = phase }
 end
 
+--- ¿Visible en t? La key más reciente manda; antes de la primera vale la primera; sin keys, visible.
+function Evaluate.visible(keys, t)
+    if not keys or #keys == 0 then return true end
+    local i = Interp.segment(keys, t)
+    return keys[i].visible
+end
+
 --- Opacidad del fundido a negro en t (0 transparente, 1 negro). Cada key 'fade' va de la opacidad previa a `to`.
 function Evaluate.fade(events, t)
     local alpha = 0.0
@@ -97,13 +107,13 @@ function Evaluate.triggers(events, t0, t1)
 end
 
 --- Estado completo en t.
---- { entities = { [id] = { pos, rot, anim } }, camera = { pos, rot, fov } | nil, fade, subtitle }
+--- { entities = { [id] = { pos, rot, anim, visible } }, camera = { pos, rot, fov } | nil, fade, subtitle }
 function Evaluate.scene(prepared, t)
     local entities = {}
     for _, entity in ipairs(prepared.data.entities or {}) do
         local id = entity.id
         local pos, rot = Evaluate.transform(prepared.transform[id], t)
-        entities[id] = { pos = pos, rot = rot, anim = Evaluate.anim(prepared.anim[id], t) }
+        entities[id] = { pos = pos, rot = rot, anim = Evaluate.anim(prepared.anim[id], t), visible = Evaluate.visible(prepared.visibility[id], t) }
     end
 
     local camera

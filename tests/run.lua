@@ -3,6 +3,7 @@
 dofile('shared/interp.lua')
 dofile('shared/evaluate.lua')
 dofile('shared/crowd.lua')
+dofile('shared/rdp.lua')
 dofile('shared/scene.lua')
 
 local passed, failed = 0, 0
@@ -44,6 +45,7 @@ dofile('tests/scene_spec.lua')
 dofile('tests/interp_spec.lua')
 dofile('tests/evaluate_spec.lua')
 dofile('tests/crowd_spec.lua')
+dofile('tests/fx_spec.lua')
 
 print(('%d ok, %d fallos'):format(passed, failed))
 if failed > 0 then os.exit(1) end

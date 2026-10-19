@@ -92,6 +92,34 @@ Config.CrowdPresets = {
     },
 }
 
+-- Texto 3D, luces y partículas
+Config.Fx = {
+    maxLights = 16,       -- luces dinámicas dibujadas a la vez (las más cercanas a la cámara)
+    lightDistance = 80.0, -- más allá no se dibujan
+    textDistance = 60.0,
+    ptfxDistance = 150.0, -- las partículas se apagan más allá y se vuelven a encender al acercarse
+}
+
+-- Catálogo de partículas que ofrece el editor (asset + efecto en bucle).
+-- Revisa los nombres in-game antes de usarlos en producción; puedes añadir los que quieras.
+Config.PtfxCatalog = {
+    { asset = 'core', effect = 'exp_grd_bzgas_smoke' },
+    { asset = 'core', effect = 'ent_amb_smoke_foundry' },
+    { asset = 'core', effect = 'fire_wrecked_plane_cockpit' },
+    { asset = 'core', effect = 'ent_amb_waterfall_splash_p' },
+    { asset = 'core', effect = 'ent_dst_elec_fire_sp' },
+    { asset = 'scr_rcbarry2', effect = 'scr_clown_appears' },
+    { asset = 'scr_indep_fireworks', effect = 'scr_indep_firework_trailburst' },
+}
+
+-- Grabación en vivo (REC)
+Config.Recording = {
+    sampleMs = 50,      -- cada cuánto se toma la posición
+    epsilon = 0.08,     -- metros de error admitidos al simplificar (más alto = menos keys)
+    maxSeconds = 300,
+    stopControl = 177,  -- Retroceso: termina la grabación
+}
+
 -- Overlay de depuración de reproducción: setr dwkambience_debug 1
 Config.DebugConvar = 'dwkambience_debug'
 
