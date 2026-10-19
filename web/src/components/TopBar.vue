@@ -55,6 +55,7 @@ const menus = computed<Menu[]>(() => {
         item(t('save'), editor.save, { shortcut: 'Ctrl+S', disabled: !canEdit || !editor.dirty }),
         item(t('closeScene'), () => emit('closeScene'), { disabled: !hasScene }),
         sep,
+        item(t('historyMenu'), editor.openHistory, { disabled: !hasScene }),
         item(t('exportScene'), () => editor.exportScene(), { disabled: !hasScene }),
         item(t('importScene'), editor.openImport),
         sep,

@@ -6,7 +6,7 @@ const confirm = useConfirm()
 </script>
 
 <template>
-  <div v-if="confirm.request" class="scrim" @mousedown.self="confirm.answer(false)">
+  <div v-if="confirm.request" class="scrim confirm" @mousedown.self="confirm.answer(false)">
     <div class="dialog" role="dialog" @keydown.esc="confirm.answer(false)">
       <h2>{{ confirm.request.title }}</h2>
       <p class="muted">{{ confirm.request.body }}</p>
@@ -30,7 +30,8 @@ const confirm = useConfirm()
 </template>
 
 <style scoped>
-.scrim { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 60; }
+/* Por encima de cualquier otro diálogo: confirma acciones lanzadas desde ellos */
+.scrim { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 70; }
 .dialog { width: 380px; padding: 20px; background: var(--surface-2); border-radius: var(--radius); box-shadow: var(--shadow); }
 h2 { margin: 0 0 8px; font-size: var(--fs-lg); font-weight: 600; }
 p { margin: 0 0 18px; font-size: var(--fs-sm); line-height: 1.5; }

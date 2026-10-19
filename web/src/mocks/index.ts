@@ -50,6 +50,7 @@ function stats(data: SceneData) {
 let rows = load()
 let openId: number | null = null
 const poses = new Map<string, { pos: Vec3; rot: Vec3 }>()
+const revisions = new Map<number, { rev: number; data: SceneData; createdBy: string; createdAt: number }[]>()
 const randomPos = (): Vec3 => [
   +(290 + Math.random() * 10).toFixed(3),
   +(-850 + Math.random() * 10).toFixed(3),
@@ -85,6 +86,9 @@ const handlers: Record<string, (data: any) => unknown> = {
     const row = rows.find((r) => r.meta.id === id)
     if (!row || openId !== id) return { ok: false, error: 'not_locked' }
     row.data = throughLua(data)
+    const list = revisions.get(id) ?? []
+    list.unshift({ rev: (list[0]?.rev ?? 0) + 1, data: JSON.parse(JSON.stringify(data)), createdBy: 'Dev', createdAt: Date.now() })
+    revisions.set(id, list.slice(0, 20))
     row.meta = {
       ...row.meta, ...stats(data), name: meta.name, group: meta.group || null,
       durationMs: data.settings.duration, updatedAt: Date.now(),
@@ -109,6 +113,14 @@ const handlers: Record<string, (data: any) => unknown> = {
 
   pick: () => ({ ok: true, id: null }),
   vehicleType: () => ({ ok: true, type: 'automobile' }),
+  revisions: ({ id }: { id: number }) => ({
+    ok: true,
+    revisions: (revisions.get(id) ?? []).map(({ rev, createdBy, createdAt, data }) => ({ rev, createdBy, createdAt, size: JSON.stringify(data).length })),
+  }),
+  revisionGet: ({ id, rev }: { id: number; rev: number }) => {
+    const found = revisions.get(id)?.find((r) => r.rev === rev)
+    return found ? { ok: true, data: throughLua(found.data) } : { ok: false, error: 'not_found' }
+  },
 
   export: ({ id }: { id: number }) => {
     const row = rows.find((r) => r.meta.id === id)

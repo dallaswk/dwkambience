@@ -426,6 +426,15 @@ nui('vehicleType', function(data)
     return { ok = true, type = vtype }
 end)
 
+-- Historial de revisiones
+nui('revisions', function(data)
+    return lib.callback.await('dwkambience:revisions', false, data.id)
+end)
+
+nui('revisionGet', function(data)
+    return lib.callback.await('dwkambience:revisionGet', false, data.id, data.rev)
+end)
+
 -- Exportar / importar
 nui('export', function(data)
     return lib.callback.await('dwkambience:export', false, data.id)

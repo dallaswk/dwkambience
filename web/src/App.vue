@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import HelpDialog from './components/HelpDialog.vue'
 import TransferDialog from './components/TransferDialog.vue'
+import HistoryDialog from './components/HistoryDialog.vue'
 import Inspector from './components/Inspector.vue'
 import Outliner from './components/Outliner.vue'
 import SceneManager from './components/SceneManager.vue'
@@ -54,7 +55,7 @@ function onFocusOut(e: FocusEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (!editor.visible || confirm.request || editor.dialog || editor.transfer) return
+  if (!editor.visible || confirm.request || editor.dialog || editor.transfer || editor.revisions !== null) return
   const key = e.key.toLowerCase()
   const mod = e.ctrlKey || e.metaKey
   if (mod && key === 's') {
@@ -153,6 +154,7 @@ onBeforeUnmount(() => {
   <ConfirmDialog />
   <HelpDialog />
   <TransferDialog />
+  <HistoryDialog />
 </template>
 
 <style scoped>

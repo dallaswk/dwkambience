@@ -103,6 +103,8 @@ export const useEditor = defineStore('editor', () => {
   const recording = ref(false)
   const multiSelected = ref<string[]>([]) // selección múltiple (Ctrl+clic) para set pieces
   const setPieces = ref<{ id: number; name: string }[]>([])
+  // null = diálogo cerrado
+  const revisions = ref<{ rev: number; createdBy: string | null; createdAt: number | string | null; size: number | null }[] | null>(null)
   const screenProps = ref<{ model: string; target: string }[]>([])
   const transfer = ref<{ mode: 'export'; name: string; json: string } | { mode: 'import' } | null>(null)
 
@@ -655,6 +657,34 @@ export const useEditor = defineStore('editor', () => {
     updateEntity(id, { networked, props })
   }
 
+  // --- Historial de revisiones -----------------------------------------------------------
+
+  async function openHistory() {
+    if (!meta.value) return
+    const result = await fetchNui<Result & { revisions: NonNullable<typeof revisions.value> }>('revisions', { id: meta.value.id })
+    if (!result?.ok) return fail(result)
+    revisions.value = Array.isArray(result.revisions) ? result.revisions : []
+  }
+
+  /** Carga una revisión como cambios sin guardar (se puede deshacer; queda fija al guardar). */
+  async function restoreRevision(rev: number) {
+    if (!meta.value || !canEdit.value) return
+    const ok = await useConfirm().ask({ title: t('historyRestoreTitle', { rev }), body: t('historyRestoreBody'), confirm: t('historyRestore') })
+    if (!ok) return
+    const result = await fetchNui<Result & { data: unknown }>('revisionGet', { id: meta.value.id, rev })
+    if (!result?.ok) return fail(result)
+    const data = normalizeScene(result.data, meta.value.type)
+    edit((s) => {
+      s.settings = data.settings
+      s.entities = data.entities
+      s.tracks = data.tracks
+    })
+    revisions.value = null
+    useTimeline().select(null)
+    if (selectedId.value && !data.entities.some((e) => e.id === selectedId.value)) select(null)
+    toasts.push(t('historyRestored', { rev }), 'success')
+  }
+
   // --- Exportar / importar ------------------------------------------------------------
 
   /** Exporta la escena abierta (con los cambios sin guardar) o, con id, una de la lista */
@@ -957,6 +987,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    revisions, openHistory, restoreRevision,
     screenProps, spawnScreen, isScreenModel, setScreen, updateScreen,
     transfer, exportScene, openImport, importScene, networkedCount, maxNetworked, setNetworked,
     ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,

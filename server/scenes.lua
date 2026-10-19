@@ -254,3 +254,32 @@ register('dwkambience:import', function(src, payload)
     if payload.type == 'ambience' then Ambience.refresh(id) end
     return openFor(src, id)
 end)
+
+-- Historial de revisiones ---------------------------------------------------------------
+
+register('dwkambience:revisions', function(src, id)
+    if not Permissions.canEdit(src) then return fail('forbidden') end
+    id = sceneId(id)
+    if not id then return fail('bad_id') end
+    local rows = MySQL.query.await(
+        'SELECT rev, created_by, created_at, CHAR_LENGTH(data) AS size FROM scene_revisions WHERE scene_id = ? ORDER BY rev DESC',
+        { id }) or {}
+    local list = {}
+    for i, row in ipairs(rows) do
+        list[i] = { rev = row.rev, createdBy = row.created_by, createdAt = row.created_at, size = row.size }
+    end
+    return { ok = true, revisions = list }
+end)
+
+-- Datos de una revisión, migrados al esquema actual. Restaurar es cosa del editor: los carga como
+-- cambios sin guardar, así que el bloqueo y la validación del guardado normal siguen aplicando.
+register('dwkambience:revisionGet', function(src, id, rev)
+    if not Permissions.canEdit(src) then return fail('forbidden') end
+    id, rev = sceneId(id), math.tointeger(tonumber(rev))
+    if not id or not rev then return fail('bad_id') end
+    local row = MySQL.single.await('SELECT data FROM scene_revisions WHERE scene_id = ? AND rev = ?', { id, rev })
+    if not row then return fail('not_found') end
+    local data = Scene.migrate(json.decode(row.data))
+    if not data then return fail('corrupt_scene') end
+    return { ok = true, data = data }
+end)
