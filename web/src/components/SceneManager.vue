@@ -75,6 +75,7 @@ async function remove(row: SceneRow) {
 
     <section class="list">
       <div class="list-head">
+        <button class="btn ghost import" @click="editor.openImport()">{{ t('importScene') }}</button>
         <label class="search">
           <Icon name="search" :size="14" />
           <input v-model="search" :placeholder="t('searchScenes')" />
@@ -113,6 +114,9 @@ async function remove(row: SceneRow) {
               :title="t('ambienceActive')"
               @click.stop="editor.setActive(row.id, !row.active)"
             >{{ row.active ? t('on') : t('off') }}</button>
+            <button class="btn icon ghost del" :title="t('exportScene')" @click.stop="editor.exportScene(row.id)">
+              <Icon name="save" :size="14" />
+            </button>
             <button class="btn icon ghost danger del" :title="t('delete')" @click.stop="remove(row)">
               <Icon name="trash" :size="14" />
             </button>
@@ -156,6 +160,7 @@ async function remove(row: SceneRow) {
 }
 .search input { flex: 1; background: none; border: none; padding: 7px 0; }
 .filters { display: flex; gap: 4px; }
+.import { align-self: flex-start; padding: 0 8px; }
 .filters button {
   border: none;
   background: none;

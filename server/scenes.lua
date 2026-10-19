@@ -211,3 +211,45 @@ register('dwkambience:delete', function(src, id)
     Log.action(src, 'Escena borrada', ('#%d %s'):format(id, row.name))
     return { ok = true }
 end)
+
+-- Exportar / importar ---------------------------------------------------------------
+
+register('dwkambience:export', function(src, id)
+    if not Permissions.canEdit(src) then return fail('forbidden') end
+    id = sceneId(id)
+    local row = id and MySQL.single.await('SELECT name, type, group_name, data FROM scenes WHERE id = ?', { id })
+    if not row then return fail('not_found') end
+    local data = Scene.migrate(json.decode(row.data))
+    if not data then return fail('corrupt_scene') end
+    Log.action(src, 'Escena exportada', ('#%d %s'):format(id, row.name))
+    return { ok = true, name = row.name, type = row.type, group = row.group_name, data = data }
+end)
+
+-- Crea una escena nueva a partir de un JSON exportado (de este u otro servidor). Siempre se migra
+-- y se valida con el esquema; un ambience importado llega apagado.
+register('dwkambience:import', function(src, payload)
+    if not Permissions.canEdit(src) then return fail('forbidden') end
+    if type(payload) ~= 'table' or not Scene.TYPES[payload.type] then return fail('bad_type') end
+    local name, group, err = cleanMeta(payload)
+    if not name then return fail(err) end
+
+    local data
+    data, err = Scene.migrate(payload.data)
+    if not data then return fail('invalid: ' .. tostring(err)) end
+    data, err = Scene.sanitize(data, studioLimits(Config.DefaultStudio, payload.type))
+    if not data then return fail((err == 'too_many_entities' or err == 'too_many_peds') and err or ('invalid: ' .. err)) end
+    data.settings.active = false
+
+    local encoded = json.encode(data)
+    if #encoded > Config.MaxDataBytes then return fail('too_large') end
+    local stats = Scene.stats(data)
+    local id = MySQL.insert.await([[
+        INSERT INTO scenes (name, type, group_name, studio, duration_ms, entity_count, key_count, data, schema_version, updated_by)
+        VALUES (?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)
+    ]], { name, payload.type, group or '', Config.DefaultStudio, stats.durationMs, stats.entities, stats.keys, encoded, Scene.SCHEMA, Log.who(src) })
+    if not id then return fail('db_error') end
+
+    Log.action(src, 'Escena importada', ('#%d %s (%s, %d entidades)'):format(id, name, payload.type, stats.entities))
+    if payload.type == 'ambience' then Ambience.refresh(id) end
+    return openFor(src, id)
+end)

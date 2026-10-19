@@ -412,6 +412,18 @@ nui('record', function(data)
     return { ok = true }
 end)
 
+-- Exportar / importar
+nui('export', function(data)
+    return lib.callback.await('dwkambience:export', false, data.id)
+end)
+
+nui('import', function(data)
+    closeScene()
+    local result = lib.callback.await('dwkambience:import', false, data)
+    if result and result.ok then loadScene(result) end
+    return result
+end)
+
 -- Set pieces: puente directo con el servidor
 nui('setPieces', function() return lib.callback.await('dwkambience:setPieces', false) end)
 nui('setPieceGet', function(data) return lib.callback.await('dwkambience:setPieceGet', false, data.id) end)

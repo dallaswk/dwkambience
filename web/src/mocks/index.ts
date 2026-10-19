@@ -109,6 +109,23 @@ const handlers: Record<string, (data: any) => unknown> = {
 
   pick: () => ({ ok: true, id: null }),
 
+  export: ({ id }: { id: number }) => {
+    const row = rows.find((r) => r.meta.id === id)
+    return row ? { ok: true, name: row.meta.name, type: row.meta.type, group: row.meta.group, data: throughLua(row.data) } : { ok: false, error: 'not_found' }
+  },
+
+  import: ({ name, group, type, data }: { name: string; group: string; type: SceneType; data: SceneData }) => {
+    const id = rows.reduce((max, r) => Math.max(max, r.meta.id), 0) + 1
+    const meta: SceneMeta = {
+      id, name, type, group: group || null, studio: 1, durationMs: data.settings.duration, active: false,
+      ...stats(data), updatedBy: 'Dev', updatedAt: Date.now(), lockedBy: null,
+    }
+    rows.push({ meta, data })
+    store(rows)
+    openId = id
+    return { ok: true, meta, data: throughLua(data), readOnly: false, lockedBy: null }
+  },
+
   cameraPoint: () => ({ ok: true, pos: randomPos() }),
 
   record: ({ id, startT }: { id: string; startT: number }) => {

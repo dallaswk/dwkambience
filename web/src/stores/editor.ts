@@ -13,6 +13,7 @@ import type {
   SceneType, Studio, Track, Vec3,
 } from '../types'
 import { LIGHT_STYLES, TEXT_STYLES } from '../catalog'
+import { buildExport, type ExportFile } from '../transfer'
 import { useHistory } from './history'
 import { useConfirm } from './confirm'
 import { useTimeline } from './timeline'
@@ -27,6 +28,7 @@ const ERRORS: Record<string, MessageKey> = {
   bad_group: 'errBadGroup',
   invalid_model: 'errInvalidModel',
   invalid_anim: 'errInvalidAnim',
+  bad_type: 'errNotAScene',
   spawn_failed: 'errSpawnFailed',
   too_many_entities: 'errTooManyEntities',
   too_many_peds: 'errTooManyPeds',
@@ -100,6 +102,7 @@ export const useEditor = defineStore('editor', () => {
   const recording = ref(false)
   const multiSelected = ref<string[]>([]) // selección múltiple (Ctrl+clic) para set pieces
   const setPieces = ref<{ id: number; name: string }[]>([])
+  const transfer = ref<{ mode: 'export'; name: string; json: string } | { mode: 'import' } | null>(null)
 
   const studio = computed<Studio | null>(() => (meta.value ? studios.value[meta.value.studio] ?? null : null))
   // Cada persona de una multitud cuenta para el límite del estudio
@@ -605,6 +608,35 @@ export const useEditor = defineStore('editor', () => {
     loadSetPieces()
   }
 
+  // --- Exportar / importar ------------------------------------------------------------
+
+  /** Exporta la escena abierta (con los cambios sin guardar) o, con id, una de la lista */
+  async function exportScene(id?: number) {
+    if (id === undefined || id === meta.value?.id) {
+      if (!scene.value || !meta.value) return
+      const file = buildExport(meta.value.name, meta.value.type, meta.value.group, scene.value)
+      transfer.value = { mode: 'export', name: meta.value.name, json: JSON.stringify(file, null, 2) }
+      return
+    }
+    const result = await fetchNui<Result & { name: string; type: SceneType; group: string | null; data: unknown }>('export', { id })
+    if (!result?.ok) return fail(result)
+    const data = normalizeScene(result.data, result.type)
+    transfer.value = { mode: 'export', name: result.name, json: JSON.stringify(buildExport(result.name, result.type, result.group ?? null, data), null, 2) }
+  }
+
+  function openImport() {
+    transfer.value = { mode: 'import' }
+  }
+
+  async function importScene(file: ExportFile, name: string, group: string) {
+    const result = await fetchNui<OpenResult>('import', { name, group, type: file.type, data: file.data })
+    if (!result?.ok) return fail(result)
+    transfer.value = null
+    adopt(result)
+    toasts.push(t('imported', { name }), 'success')
+    refreshList()
+  }
+
   // --- Ambience: zona, horario e interruptor ---------------------------------------
 
   function setTrigger(patch: Partial<NonNullable<SceneData['settings']['trigger']>>) {
@@ -878,6 +910,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    transfer, exportScene, openImport, importScene,
     ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,
     toggleVisibility, record, onRecording, toggleMulti, loadSetPieces, saveSetPiece, insertSetPiece, deleteSetPiece,
     crowdPresets, maxPedsPerAmbience, placingPoints, pedCount, spawnSound, spawnCrowd, updateCrowd, regenerateCrowd,
