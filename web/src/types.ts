@@ -1,10 +1,11 @@
-// Espejo en TS de shared/scene.lua (schema 1)
+// Espejo en TS de shared/scene.lua (schema 2)
 
 export type Vec3 = [number, number, number]
 export type SceneType = 'cutscene' | 'ambience'
 export type EntityKind = 'ped' | 'vehicle' | 'prop' | 'sound' | 'crowd'
-export type Channel = 'transform' | 'camera' | 'audio'
-export type Ease = 'linear' | 'in' | 'out' | 'inOut'
+export type Channel = 'transform' | 'anim' | 'camera' | 'audio' | 'event'
+export type Ease = 'linear' | 'in' | 'out' | 'inOut' | 'spline'
+export type EventType = 'fade' | 'subtitle' | 'trigger'
 
 export type PropValue = boolean | number | string | (boolean | number | string)[] | Record<string, boolean | number | string>
 
@@ -17,6 +18,7 @@ export interface SceneEntity {
   networked: boolean
 }
 
+/** Key de transform o de cámara */
 export interface Key {
   t: number
   pos: Vec3
@@ -25,20 +27,38 @@ export interface Key {
   fov?: number
 }
 
-export interface Clip {
+export type EventKey =
+  | { t: number; type: 'fade'; to: 0 | 1; duration: number }
+  | { t: number; type: 'subtitle'; text: string; duration: number }
+  | { t: number; type: 'trigger'; name: string }
+
+export interface AudioClip {
   start: number
   asset: string
   volume: number
   loop: boolean
   fadeIn: number
+  duration?: number
 }
+
+export interface AnimClip {
+  start: number
+  dict: string
+  clip: string
+  length: number
+  duration: number
+  loop: boolean
+}
+
+export type AnyKey = Key | EventKey
+export type AnyClip = AudioClip | AnimClip
 
 export interface Track {
   id: string
   target: string
   channel: Channel
-  keys?: Key[]
-  clips?: Clip[]
+  keys?: AnyKey[]
+  clips?: AnyClip[]
 }
 
 export interface SceneSettings {

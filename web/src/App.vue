@@ -5,17 +5,20 @@ import Inspector from './components/Inspector.vue'
 import Outliner from './components/Outliner.vue'
 import SceneManager from './components/SceneManager.vue'
 import SceneSummary from './components/SceneSummary.vue'
-import TimelineStub from './components/TimelineStub.vue'
+import Timeline from './components/timeline/Timeline.vue'
 import Toasts from './components/Toasts.vue'
 import TopBar from './components/TopBar.vue'
 import Viewport from './components/Viewport.vue'
 import { t } from './i18n'
 import { bootMock } from './mocks'
 import { fetchNui, inGame, onNuiMessage } from './nui'
+import { handlePlayback } from './playback'
 import { useConfirm } from './stores/confirm'
 import { useEditor } from './stores/editor'
+import { useTimeline } from './stores/timeline'
 
 const editor = useEditor()
+const timeline = useTimeline()
 const confirm = useConfirm()
 
 async function confirmDiscard() {
@@ -49,16 +52,35 @@ function onFocusOut(e: FocusEvent) {
 
 function onKey(e: KeyboardEvent) {
   if (!editor.visible || confirm.request) return
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+  const key = e.key.toLowerCase()
+  const mod = e.ctrlKey || e.metaKey
+  if (mod && key === 's') {
     e.preventDefault()
     editor.save()
     return
   }
-  if (isTyping(e.target)) return
-  const id = editor.selectedId
-  if ((e.key === 'Delete' || e.key === 'Backspace') && id) editor.removeEntity(id)
-  else if (e.key.toLowerCase() === 'f' && id) editor.focus(id)
-  else if (e.key === 'Escape' && id) editor.select(null)
+  if (isTyping(e.target) || !editor.scene) return
+
+  if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) {
+    e.preventDefault()
+    editor.redo()
+  } else if (mod && key === 'z') {
+    e.preventDefault()
+    editor.undo()
+  } else if (key === ' ') {
+    e.preventDefault()
+    timeline.toggle()
+  } else if (key === 'k') {
+    editor.recordKey()
+  } else if (key === 'delete' || key === 'backspace') {
+    if (editor.selectedItem) editor.deleteSelected()
+    else if (editor.selectedId) editor.removeEntity(editor.selectedId)
+  } else if (key === 'f' && editor.selectedId) {
+    editor.focus(editor.selectedId)
+  } else if (key === 'escape') {
+    if (editor.selectedItem) timeline.select(null)
+    else if (editor.selectedId) editor.select(null)
+  }
 }
 
 let stop: (() => void) | undefined
@@ -68,6 +90,7 @@ onMounted(() => {
     if (action === 'open') editor.show(data as { studios: unknown; locale?: unknown })
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
+    else if (action === 'playback') handlePlayback(data as Parameters<typeof handlePlayback>[0])
   })
   document.addEventListener('focusin', onFocusIn)
   document.addEventListener('focusout', onFocusOut)
@@ -102,7 +125,7 @@ onBeforeUnmount(() => {
 
     <template v-if="editor.scene">
       <Inspector />
-      <TimelineStub />
+      <Timeline />
     </template>
   </div>
 

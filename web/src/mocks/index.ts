@@ -46,6 +46,7 @@ function stats(data: SceneData) {
 
 let rows = load()
 let openId: number | null = null
+const poses = new Map<string, { pos: Vec3; rot: Vec3 }>()
 const randomPos = (): Vec3 => [
   +(290 + Math.random() * 10).toFixed(3),
   +(-850 + Math.random() * 10).toFixed(3),
@@ -103,6 +104,20 @@ const handlers: Record<string, (data: any) => unknown> = {
     /^[\w-]+$/.test(model) ? { ok: true, pos: randomPos(), rot: [0, 0, +(Math.random() * 360).toFixed(2)] } : { ok: false, error: 'invalid_model' },
 
   pick: () => ({ ok: true, id: null }),
+
+  applyEntity: ({ entity, pos, rot }: { entity: { id: string }; pos: Vec3; rot: Vec3 }) => {
+    if (pos && rot) poses.set(entity.id, { pos, rot })
+    return { ok: true }
+  },
+
+  pose: ({ id }: { id: string }) => {
+    const pose = poses.get(id)
+    return pose ? { ok: true, ...pose } : { ok: false }
+  },
+
+  cameraPose: () => ({ ok: true, pos: randomPos(), rot: [-10, 0, +(Math.random() * 360).toFixed(2)], fov: 50 }),
+
+  animInfo: ({ dict }: { dict: string }) => (dict ? { ok: true, length: 2000 } : { ok: false, error: 'invalid_anim' }),
 
   ground: () => ({ ok: true, pos: randomPos(), rot: [0, 0, 0] }),
 

@@ -2,16 +2,20 @@
 import { computed, ref, watch } from 'vue'
 import { VEHICLE_DOORS } from '../catalog'
 import { t } from '../i18n'
-import { KIND_LABEL, baseTransform } from '../scene'
+import { KIND_LABEL, baseTransform, formatTime } from '../scene'
 import { useEditor } from '../stores/editor'
 import type { Vec3 } from '../types'
+import { useTimeline } from '../stores/timeline'
 import Icon from './Icon.vue'
+import KeyPanel from './KeyPanel.vue'
 import Vec3Field from './Vec3Field.vue'
 
 const editor = useEditor()
+const timeline = useTimeline()
 
 const entity = computed(() => editor.selected)
-const transform = computed(() => (editor.scene && entity.value ? baseTransform(editor.scene, entity.value.id) : undefined))
+// Pose en el instante actual (la lee el cliente); mientras llega, la primera key
+const transform = computed(() => editor.pose ?? (editor.scene && entity.value ? baseTransform(editor.scene, entity.value.id) : undefined))
 const disabled = computed(() => !editor.canEdit || editor.gizmoActive)
 const props = computed(() => entity.value?.props ?? {})
 
@@ -31,10 +35,10 @@ watch(
 const doors = computed(() => (Array.isArray(props.value.doors) ? (props.value.doors as number[]) : []))
 
 function setPos(pos: Vec3) {
-  if (entity.value && transform.value) editor.setTransform(entity.value.id, pos, transform.value.rot)
+  if (entity.value && transform.value) editor.setPose(entity.value.id, pos, transform.value.rot)
 }
 function setRot(rot: Vec3) {
-  if (entity.value && transform.value) editor.setTransform(entity.value.id, transform.value.pos, rot)
+  if (entity.value && transform.value) editor.setPose(entity.value.id, transform.value.pos, rot)
 }
 function setProp(key: string, value: Parameters<typeof editor.setProp>[2]) {
   if (entity.value) editor.setProp(entity.value.id, key, value)
@@ -46,6 +50,11 @@ function applyAnim() {
   editor.updateEntity(entity.value.id, {
     props: { ...withoutKeys(props.value, ['anim', 'scenario']), ...(dict && clip ? { anim: { dict, clip } } : {}) },
   })
+}
+function addAnimToTimeline() {
+  const dict = animDict.value.trim()
+  const clip = animClip.value.trim()
+  if (entity.value && dict && clip) editor.addAnimClip(entity.value.id, dict, clip)
 }
 function setScenario(value: string) {
   if (!entity.value) return
@@ -65,7 +74,9 @@ function toggleDoor(door: number) {
 
 <template>
   <aside class="inspector">
-    <div v-if="!entity" class="empty">
+    <KeyPanel v-if="editor.selectedItem" />
+
+    <div v-else-if="!entity" class="empty">
       <p class="faint">{{ t('inspectorEmpty') }}</p>
     </div>
 
@@ -112,6 +123,9 @@ function toggleDoor(door: number) {
           <input v-model="animDict" class="mono" :placeholder="t('animDict')" :disabled="disabled" />
           <input v-model="animClip" class="mono" :placeholder="t('animClip')" :disabled="disabled" @keydown.enter="applyAnim" />
           <button class="btn" :disabled="disabled" @click="applyAnim">{{ t('applyAnimation') }}</button>
+          <button class="btn" :disabled="disabled || !animDict.trim() || !animClip.trim()" @click="addAnimToTimeline">
+            <Icon name="plus" :size="14" /> {{ t('addAnimToTimeline', { time: formatTime(timeline.time) }) }}
+          </button>
           <div class="section-title sub">{{ t('scenario') }}</div>
           <input
             class="mono"

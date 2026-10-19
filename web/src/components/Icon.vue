@@ -25,6 +25,22 @@ const PATHS: Record<string, string> = {
   back: 'M15 6l-6 6 6 6',
   tag: 'M3 12V4h8l9 9-8 8zM7.5 7.5h.01',
   exit: 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',
+  play: 'M7 5l12 7-12 7z',
+  pause: 'M8 5v14M16 5v14',
+  skipStart: 'M6 5v14M18 6l-9 6 9 6z',
+  skipEnd: 'M18 5v14M6 6l9 6-9 6z',
+  prevKey: 'M14 7l-5 5 5 5M5 12h0',
+  nextKey: 'M10 7l5 5-5 5M19 12h0',
+  key: 'M12 4l8 8-8 8-8-8z',
+  camera: 'M4 8h11v9H4zM15 11l5-3v9l-5-3',
+  undo: 'M9 7L4 12l5 5M4 12h11a5 5 0 0 1 0 10h-2',
+  redo: 'M15 7l5 5-5 5M20 12H9a5 5 0 0 0 0 10h2',
+  loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
+  magnet: 'M6 4v7a6 6 0 0 0 12 0V4M6 8h4M14 8h4M10 4v7a2 2 0 0 0 4 0V4',
+  zoomIn: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M11 8v6M8 11h6',
+  zoomOut: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6',
+  music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
 }
 </script>
 
