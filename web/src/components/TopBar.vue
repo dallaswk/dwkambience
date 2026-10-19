@@ -136,10 +136,11 @@ const menus = computed<Menu[]>(() => {
   ]
 })
 
-const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
+const PALETTES = computed<{ kind: EntityKind | 'screen'; label: MessageKey }[]>(() => [
   { kind: 'ped', label: 'palettePed' },
   { kind: 'vehicle', label: 'paletteVehicle' },
   { kind: 'prop', label: 'paletteProp' },
+  { kind: 'screen', label: 'paletteScreen' },
   { kind: 'text', label: 'paletteText' },
   { kind: 'light', label: 'paletteLight' },
   { kind: 'ptfx', label: 'palettePtfx' },
@@ -147,13 +148,14 @@ const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
   { kind: 'crowd', label: 'paletteCrowd' },
 ])
 
-function spawnFrom(kind: EntityKind, model: string) {
-  if (kind === 'sound') editor.spawnSound(model)
+function spawnFrom(kind: EntityKind | 'screen', model: string) {
+  if (kind === 'screen') editor.spawnScreen(model)
+  else if (kind === 'sound') editor.spawnSound(model)
   else if (kind === 'crowd') editor.spawnCrowd(model)
   else if (kind === 'text') editor.spawnText(model)
   else if (kind === 'light') editor.spawnLight(model)
   else if (kind === 'ptfx') editor.spawnPtfx(model)
-  else editor.spawn(kind, model)
+  else editor.spawn(kind as EntityKind, model)
 }
 
 const savedLabel = computed(() => {
@@ -242,8 +244,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     </div>
 
     <div v-if="editor.meta" class="center">
-      <span class="faint">{{ editor.meta.group || t('ungrouped') }}</span>
-      <span class="faint">/</span>
+      <span class="faint group">{{ editor.meta.group || t('ungrouped') }}</span>
+      <span class="faint group">/</span>
       <span class="name">{{ editor.meta.name }}</span>
       <Icon v-if="editor.readOnly" name="lock" :size="13" class="faint" />
       <span class="saved" :class="{ dirty: editor.dirty && !editor.readOnly }">{{ savedLabel }}</span>
@@ -253,8 +255,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
       <span v-if="editor.studio" class="counter mono" :class="{ warn: nearLimit }">
         {{ editor.studio.label }} // {{ editor.entityCount }}/{{ editor.studio.maxEntities }}
       </span>
-      <button v-if="editor.meta?.type === 'cutscene'" class="btn ghost" :disabled="!editor.scene" @click="editor.preview()">
-        <Icon name="play" :size="14" /> {{ t('preview') }}
+      <button v-if="editor.meta?.type === 'cutscene'" class="btn ghost" :disabled="!editor.scene" :title="t('previewCutscene')" @click="editor.preview()">
+        <Icon name="play" :size="14" /> <span class="palette-label">{{ t('preview') }}</span>
       </button>
       <button v-if="editor.scene" class="btn primary" :disabled="!editor.canEdit || !editor.dirty || editor.saving" @click="editor.save">
         <Icon name="save" :size="14" /> {{ t('save') }}
@@ -285,12 +287,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 /* En pantallas estrechas las paletas quedan solo con icono (el nombre sigue en el título) */
 @media (max-width: 1750px) {
   .palette-label { display: none; }
+  .group { display: none; }
 }
 .divider { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
-.name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-.saved { color: var(--text-3); margin-left: 6px; }
+.name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.group { white-space: nowrap; }
+.saved { color: var(--text-3); margin-left: 6px; white-space: nowrap; }
 .saved.dirty { color: var(--warning); }
-.counter { font-size: var(--fs-xs); color: var(--text-2); }
+.counter { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
 .counter.warn { color: var(--warning); }
 
 .menu-root { position: relative; }

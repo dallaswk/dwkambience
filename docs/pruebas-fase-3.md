@@ -32,7 +32,18 @@ fases 0, 1 y 2 se repiten sin regresiones.
 - [ ] Insertarla en otra escena: aparece donde mira la cámara, con sus pistas desplazadas al instante actual.
 - [ ] Guardar con un nombre existente la sobrescribe; borrarla no afecta a escenas que ya la usaron.
 
-## 5. Regresión y limpieza
+## 5. Pantallas, red, intercambio y cutscenes completas
+
+- [ ] Pantallas: cada modelo de `Config.ScreenProps` muestra el texto y el fondo; corregir targets que no funcionen.
+- [ ] Dos teles del mismo modelo: se pinta la más cercana (limitación conocida).
+- [ ] Coche en red en un ambience: dos jugadores lo ven en el mismo sitio y pueden subirse; desaparece al salir
+      todos de la zona y al apagar el ambience; no aparece duplicado en local.
+- [ ] Al pasar el límite de red aparece el aviso y la entidad queda local.
+- [ ] Exportar una escena en un servidor e importarla en otro (o en el mismo): misma escena, ambience apagado.
+- [ ] Importar un JSON roto o de otra cosa: aviso claro, no se crea nada.
+- [ ] Cutscene con multitud y emisor de sonido: la gente está desde el primer frame y el sonido es posicional.
+
+## 6. Regresión y limpieza
 
 - [ ] Repetir `docs/pruebas-fase-1.md` y `docs/pruebas-fase-2.md`.
 - [ ] `ensure dwkambience` durante una grabación, una cutscene y dentro de un ambience: nada queda colgado

@@ -40,6 +40,7 @@ const FACINGS: Facing[] = ['random', 'along', 'point']
 const text3d = computed(() => entity.value?.text)
 const light = computed(() => entity.value?.light)
 const ptfx = computed(() => entity.value?.ptfx)
+const screen = computed(() => entity.value?.screen)
 const visibleNow = computed(() => (editor.scene && entity.value ? visibleAt(editor.scene, entity.value.id, timeline.time) : true))
 
 const toHex = (c: Color) => `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
@@ -175,6 +176,37 @@ function toggleDoor(door: number) {
             {{ t('networked') }}
           </label>
           <p class="note">{{ t('networkedHint', { n: editor.networkedCount, max: editor.maxNetworked }) }}</p>
+        </section>
+
+        <section v-if="screen || editor.isScreenModel(entity.model)">
+          <div class="section-title">{{ t('screen') }}</div>
+          <template v-if="screen">
+            <label class="field column">
+              <span>{{ t('textContent') }}</span>
+              <input :value="screen.content" maxlength="200" :disabled="disabled" @change="editor.updateScreen(entity.id, { content: text($event).trim() || screen!.content })" />
+            </label>
+            <label class="field">
+              <span>{{ t('color') }}</span>
+              <input type="color" :value="toHex(screen.color)" :disabled="disabled" @change="editor.updateScreen(entity.id, { color: fromHex(text($event)) })" />
+            </label>
+            <label class="field">
+              <span>{{ t('screenBackground') }}</span>
+              <input type="color" :value="toHex(screen.background)" :disabled="disabled" @change="editor.updateScreen(entity.id, { background: fromHex(text($event)) })" />
+            </label>
+            <label class="range">
+              <span>{{ t('textScale') }} <span class="mono faint">{{ screen.scale.toFixed(1) }}</span></span>
+              <input type="range" min="0.1" max="5" step="0.1" :value="screen.scale" :disabled="disabled" @change="editor.updateScreen(entity.id, { scale: num($event) })" />
+            </label>
+            <label class="field">
+              <span>{{ t('textFont') }}</span>
+              <select :value="screen.font" :disabled="disabled" @change="editor.updateScreen(entity.id, { font: num($event) })">
+                <option v-for="f in FONTS" :key="f" :value="f">{{ f }}</option>
+              </select>
+            </label>
+            <p class="note">{{ t('screenHint') }}</p>
+            <button class="btn" :disabled="disabled" @click="editor.setScreen(entity.id, undefined)">{{ t('screenRemove') }}</button>
+          </template>
+          <button v-else class="btn" :disabled="disabled" @click="editor.updateScreen(entity.id, {})"><Icon name="screen" :size="14" /> {{ t('screenAdd') }}</button>
         </section>
 
         <section v-if="text3d">

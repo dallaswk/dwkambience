@@ -9,7 +9,7 @@ import {
   removeEntity as removeFromScene, removeItem, transformTrack, updateClip, updateKey, upsertPoseKey,
 } from '../scene'
 import type {
-  AnyClip, AnyKey, CrowdDef, EntityKind, EventType, Key, LightDef, OpenResult, PtfxDef, SetPieceData, SoundDef, TextDef, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
+  AnyClip, AnyKey, CrowdDef, EntityKind, EventType, Key, LightDef, OpenResult, PtfxDef, ScreenDef, SetPieceData, SoundDef, TextDef, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
   SceneType, Studio, Track, Vec3,
 } from '../types'
 import { LIGHT_STYLES, TEXT_STYLES } from '../catalog'
@@ -103,6 +103,7 @@ export const useEditor = defineStore('editor', () => {
   const recording = ref(false)
   const multiSelected = ref<string[]>([]) // selección múltiple (Ctrl+clic) para set pieces
   const setPieces = ref<{ id: number; name: string }[]>([])
+  const screenProps = ref<{ model: string; target: string }[]>([])
   const transfer = ref<{ mode: 'export'; name: string; json: string } | { mode: 'import' } | null>(null)
 
   const studio = computed<Studio | null>(() => (meta.value ? studios.value[meta.value.studio] ?? null : null))
@@ -182,11 +183,12 @@ export const useEditor = defineStore('editor', () => {
 
   // --- Ciclo de vida --------------------------------------------------------
 
-  function show(payload: { studios: unknown; locale?: unknown; presets?: unknown; maxPedsPerAmbience?: unknown; ptfx?: unknown }) {
+  function show(payload: { studios: unknown; locale?: unknown; presets?: unknown; maxPedsPerAmbience?: unknown; ptfx?: unknown; screens?: unknown }) {
     setLocale(payload.locale)
     crowdPresets.value = Array.isArray(payload.presets) ? (payload.presets as string[]) : []
     if (typeof payload.maxPedsPerAmbience === 'number') maxPedsPerAmbience.value = payload.maxPedsPerAmbience
     ptfxCatalog.value = Array.isArray(payload.ptfx) ? (payload.ptfx as { asset: string; effect: string }[]) : []
+    screenProps.value = Array.isArray(payload.screens) ? (payload.screens as { model: string; target: string }[]) : []
     studios.value = toStudios(payload.studios)
     visible.value = true
     refreshList()
@@ -298,7 +300,7 @@ export const useEditor = defineStore('editor', () => {
 
   // --- Entidades ------------------------------------------------------------
 
-  async function spawn(kind: EntityKind, model: string) {
+  async function spawn(kind: EntityKind, model: string, extra: Partial<SceneEntity> = {}) {
     if (!scene.value || !canEdit.value) return
     if (studio.value && entityCount.value >= studio.value.maxEntities) return fail({ ok: false, error: 'too_many_entities' })
 
@@ -306,7 +308,7 @@ export const useEditor = defineStore('editor', () => {
     if (!point?.ok) return fail(point)
 
     const { id, label } = nextEntityId(scene.value, kind)
-    const entity: SceneEntity = { id, kind, model, label, props: {}, networked: false }
+    const entity: SceneEntity = { id, kind, model, label, props: {}, networked: false, ...extra }
     const result = await fetchNui<Result>('applyEntity', { entity, pos: point.pos, rot: point.rot })
     if (!result?.ok) return fail(result)
 
@@ -442,6 +444,32 @@ export const useEditor = defineStore('editor', () => {
   function spawnPtfx(key: string) {
     const [asset, effect] = key.split('/')
     spawnFx('ptfx', { asset, effect, scale: 1 }, ` · ${effect}`)
+  }
+
+  const defaultScreen = (): ScreenDef => ({ content: t('screenDefault'), color: [255, 255, 255], background: [0, 0, 0], scale: 1, font: 4 })
+
+  function spawnScreen(model: string) {
+    spawn('prop', model, { screen: defaultScreen() })
+  }
+
+  function isScreenModel(model?: string) {
+    return !!model && screenProps.value.some((s) => s.model === model)
+  }
+
+  function setScreen(id: string, screen: ScreenDef | undefined) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity) return
+    const next = { ...entity }
+    if (screen) next.screen = screen
+    else delete next.screen
+    edit((s) => {
+      s.entities = s.entities.map((e) => (e.id === id ? next : e))
+    })
+  }
+
+  function updateScreen(id: string, patch: Partial<ScreenDef>) {
+    const current = scene.value?.entities.find((e) => e.id === id)?.screen
+    setScreen(id, { ...(current ?? defaultScreen()), ...patch })
   }
 
   /** Cambia la definición de texto, luz o partículas de una entidad */
@@ -929,6 +957,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    screenProps, spawnScreen, isScreenModel, setScreen, updateScreen,
     transfer, exportScene, openImport, importScene, networkedCount, maxNetworked, setNetworked,
     ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,
     toggleVisibility, record, onRecording, toggleMulti, loadSetPieces, saveSetPiece, insertSetPiece, deleteSetPiece,

@@ -3,7 +3,7 @@
 
 Scene = Scene or {}
 
-Scene.SCHEMA = 4
+Scene.SCHEMA = 5
 
 Scene.TYPES = { cutscene = true, ambience = true }
 Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true, text = true, light = true, ptfx = true }
@@ -75,6 +75,8 @@ Scene.MIGRATIONS = {
     [2] = function(data) return data end,
     -- 3 -> 4: tipos text, light y ptfx, y el canal visibility.
     [3] = function(data) return data end,
+    -- 4 -> 5: campo screen en props (texto pintado en la pantalla del modelo).
+    [4] = function(data) return data end,
 }
 
 --- Lleva un documento al schema actual. Devuelve data o nil, error.
@@ -344,6 +346,21 @@ local function cleanPtfx(p, path)
     return out
 end
 
+local function cleanScreen(sc, path)
+    if type(sc) ~= 'table' then return nil, path end
+    local content = cleanString(sc.content, 200)
+    if not content then return nil, path .. '.content' end
+    local color = cleanColor(sc.color or { 255, 255, 255 })
+    local background = cleanColor(sc.background or { 0, 0, 0 })
+    if not color or not background then return nil, path .. '.color' end
+    local scale = sc.scale == nil and 1.0 or sc.scale
+    if not inRange(scale, 0.1, 5) then return nil, path .. '.scale' end
+    local font = sc.font == nil and 4 or sc.font
+    if math.type(font) ~= 'integer' and not (isFinite(font) and font % 1 == 0) then return nil, path .. '.font' end
+    if font < 0 or font > 8 then return nil, path .. '.font' end
+    return { content = content, color = color, background = background, scale = scale, font = math.tointeger(font) }
+end
+
 local function cleanEntity(e, i, limits)
     local path = ('entities[%d]'):format(i)
     if type(e) ~= 'table' then return nil, path end
@@ -363,6 +380,12 @@ local function cleanEntity(e, i, limits)
     if Scene.GAME_KINDS[e.kind] then
         out.model = cleanString(e.model, 64, MODEL_PATTERN)
         if not out.model then return nil, path .. '.model' end
+        -- Texto en la pantalla del modelo (televisores, pantallas de cine...): solo en props
+        if e.screen ~= nil then
+            if e.kind ~= 'prop' then return nil, path .. '.screen' end
+            out.screen, err = cleanScreen(e.screen, path .. '.screen')
+            if not out.screen then return nil, err end
+        end
     elseif e.kind == 'crowd' then
         out.crowd, err = cleanCrowd(e.crowd, limits, path .. '.crowd')
         if not out.crowd then return nil, err end

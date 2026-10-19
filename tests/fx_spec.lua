@@ -114,3 +114,16 @@ test('entidades en red: solo del juego y con límite', function()
     data.entities = { { id = 'snd_1', kind = 'sound', label = 'S', props = {}, networked = true, sound = { asset = 'a', volume = 1, range = 10, loop = true } } }
     eq(Scene.sanitize(data), nil, 'un sonido no puede ir en red')
 end)
+
+test('schema 5: texto en pantalla solo en props y con campos válidos', function()
+    local data = Scene.new('cutscene')
+    data.entities = { { id = 'prop_1', kind = 'prop', model = 'prop_tv_flat_01', label = 'TV', props = {}, networked = false,
+        screen = { content = 'EN DIRECTO', color = { 255, 255, 255 }, background = { 1, 150, 133 }, scale = 2, font = 4 } } }
+    local clean = assert(Scene.sanitize(data))
+    eq(clean.entities[1].screen.background[2], 150, 'fondo')
+    data.entities[1].screen.content = ''
+    eq(Scene.sanitize(data), nil, 'sin contenido')
+    data.entities[1].screen.content = 'ok'
+    data.entities[1].kind = 'vehicle'
+    eq(Scene.sanitize(data), nil, 'solo props')
+end)

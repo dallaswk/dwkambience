@@ -144,6 +144,7 @@ function EntityPool:apply(entity, pos, rot)
     end
     current.props = props
     current.label = entity.label
+    current.screen = entity.screen
 
     return true
 end

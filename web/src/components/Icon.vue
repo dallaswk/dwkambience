@@ -46,6 +46,7 @@ const PATHS: Record<string, string> = {
   ptfx: 'M12 3c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-4 0-7zM7 21h10',
   setpiece: 'M3 7l9-4 9 4-9 4zM3 12l9 4 9-4M3 17l9 4 9-4',
   rec: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z',
+  screen: 'M3 5h18v11H3zM8 20h8M12 16v4',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
 }
 </script>

@@ -1,4 +1,4 @@
-// Espejo en TS de shared/scene.lua (schema 4)
+// Espejo en TS de shared/scene.lua (schema 5)
 
 export type Vec3 = [number, number, number]
 export type SceneType = 'cutscene' | 'ambience'
@@ -58,6 +58,14 @@ export interface PtfxDef {
   color?: Color
 }
 
+export interface ScreenDef {
+  content: string
+  color: Color
+  background: Color
+  scale: number
+  font: number
+}
+
 export interface SceneEntity {
   id: string
   kind: EntityKind
@@ -71,6 +79,8 @@ export interface SceneEntity {
   text?: TextDef
   light?: LightDef
   ptfx?: PtfxDef
+  /** Solo props con pantalla (Config.ScreenProps) */
+  screen?: ScreenDef
 }
 
 /** Key de transform o de cámara */

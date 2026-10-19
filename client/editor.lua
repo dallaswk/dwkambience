@@ -74,6 +74,7 @@ local function openEditor()
         studios = Config.Studios, defaultStudio = Config.DefaultStudio, locale = Config.Locale,
         presets = presets, maxPedsPerAmbience = Config.Ambience.maxPedsPerAmbience,
         ptfx = Config.PtfxCatalog,
+        screens = Config.ScreenProps,
     })
     CreateThread(editorLoop)
 end

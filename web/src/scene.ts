@@ -4,7 +4,7 @@ import type {
   AnyClip, AnyKey, Channel, EntityKind, Key, SceneData, SceneEntity, SceneType, Track, Vec3,
 } from './types'
 
-export const SCHEMA = 4
+export const SCHEMA = 5
 
 /** Targets que no son entidades (igual que Scene.RESERVED_TARGETS en Lua) */
 export const CAMERA = 'camera'

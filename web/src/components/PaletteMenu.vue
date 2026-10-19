@@ -7,7 +7,7 @@ import { useEditor } from '../stores/editor'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
 
-const props = defineProps<{ kind: EntityKind; open: boolean }>()
+const props = defineProps<{ kind: EntityKind | 'screen'; open: boolean }>()
 const emit = defineEmits<{ spawn: [model: string]; close: [] }>()
 
 const editor = useEditor()
@@ -23,7 +23,9 @@ const source = computed(() => {
   if (props.kind === 'text') return Object.keys(TEXT_STYLES).map((s) => ({ model: s, label: tOr(`textStyle_${s}`, s) }))
   if (props.kind === 'light') return Object.keys(LIGHT_STYLES).map((s) => ({ model: s, label: tOr(`lightStyle_${s}`, s) }))
   if (props.kind === 'ptfx') return editor.ptfxCatalog.map((p) => ({ model: `${p.asset}/${p.effect}`, label: p.effect }))
-  return CATALOG[props.kind] ?? []
+  if (props.kind === 'screen') return editor.screenProps.map((s) => ({ model: s.model, label: s.model }))
+  if (!(props.kind in CATALOG)) return []
+  return CATALOG[props.kind as EntityKind] ?? []
 })
 
 const items = computed(() => {

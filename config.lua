@@ -112,6 +112,18 @@ Config.PtfxCatalog = {
     { asset = 'scr_indep_fireworks', effect = 'scr_indep_firework_trailburst' },
 }
 
+-- Props con pantalla para pintar texto (render target). El target es el nombre de la pantalla dentro
+-- del modelo; revisa los nombres in-game. Limitación del juego: el target se comparte por modelo, así que
+-- varios props del mismo modelo muestran la misma pantalla (se dibuja la más cercana a la cámara).
+Config.ScreenProps = {
+    { model = 'prop_tv_flat_01', target = 'tvscreen' },
+    { model = 'prop_tv_flat_03b', target = 'tvscreen' },
+    { model = 'prop_tv_flat_michael', target = 'tvscreen' },
+    { model = 'prop_monitor_w_large', target = 'tvscreen' },
+    { model = 'v_ilev_cin_screen', target = 'cinscreen' },
+    { model = 'prop_huge_display_01', target = 'big_disp' },
+}
+
 -- Grabación en vivo (REC)
 Config.Recording = {
     sampleMs = 50,      -- cada cuánto se toma la posición

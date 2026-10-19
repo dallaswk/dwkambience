@@ -71,6 +71,17 @@ jugador al entrar en su radio y se limpia al salir, en bucle y sin quitarle el c
 - **Set pieces**: selecciona entidades (Ctrl+clic) y guárdalas desde el botón Set pieces; al insertarlas
   se colocan donde mira la cámara y a partir del instante actual, con ids nuevos.
 
+## Pantallas, red e intercambio de escenas
+
+- **Texto en pantallas**: la paleta Pantallas crea props con pantalla (`Config.ScreenProps`) y pinta en ella
+  texto y fondo. Limitación del juego: los props del mismo modelo comparten pantalla (se dibuja la más cercana).
+- **Entidades en red** (solo ambiences): marca actores, coches o props como "En red" para que los jugadores
+  puedan interactuar. El servidor (OneSync) los crea una vez mientras haya alguien en la zona y se quedan en
+  su pose inicial. Límite por estudio en `Config.Studios[n].maxNetworked`; al pasarlo se avisa y quedan locales.
+- **Exportar / importar**: Archivo → Exportar escena (copiar o descargar el JSON) y Archivo → Importar escena
+  en otro servidor. El servidor migra y valida el JSON y crea una escena nueva; los ambiences llegan apagados.
+- **Cutscenes**: también admiten emisores de sonido 3D y multitudes (se crean durante la pantalla en negro).
+
 ## Música
 
 Copia los `.ogg` a `web/public/sounds/`, compila (`npm run build`) y reinicia el recurso: aparecen en
