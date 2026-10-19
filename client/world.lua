@@ -2,6 +2,7 @@
 World = {}
 
 local overridden = false
+local timecycle -- nombre del modificador aplicado, o nil
 
 local function weatherSync(enabled)
     if GetResourceState('qb-weathersync') ~= 'started' then return end
@@ -22,11 +23,27 @@ function World.apply(settings, force)
         SetWeatherTypeNowPersist(settings.weather)
         SetOverrideWeather(settings.weather)
     end
+
+    local tc = settings.timecycle
+    if tc then
+        if force or timecycle ~= tc.name then
+            SetTimecycleModifier(tc.name)
+            timecycle = tc.name
+        end
+        SetTimecycleModifierStrength(tc.strength + 0.0)
+    elseif timecycle then
+        ClearTimecycleModifier()
+        timecycle = nil
+    end
 end
 
 function World.restore()
     if not overridden then return end
     overridden = false
+    if timecycle then
+        ClearTimecycleModifier()
+        timecycle = nil
+    end
     ClearOverrideWeather()
     ClearWeatherTypePersist()
     NetworkClearClockTimeOverride()

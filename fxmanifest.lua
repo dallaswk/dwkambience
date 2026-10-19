@@ -27,11 +27,14 @@ client_scripts {
     'client/util.lua',
     'client/world.lua',
     'client/freecam.lua',
+    'client/crowds.lua',
+    'client/audio.lua',
     'client/pool.lua',
     'client/select.lua',
     'client/gizmo.lua',
     'client/editor.lua',
     'client/player.lua',
+    'client/ambience.lua',
 }
 
 server_scripts {

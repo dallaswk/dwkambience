@@ -92,7 +92,7 @@ local function stop(skipped, immediate)
     FreezeEntityPosition(ped, false)
     SetEntityInvincible(ped, false)
 
-    SendNUIMessage({ action = 'playback', data = { state = 'stop' } })
+    SendNUIMessage({ action = 'music', data = { group = 'cutscene', state = 'stop' } })
     active = nil
 
     if not immediate then fade(false) end
@@ -146,7 +146,7 @@ local function run(payload, onEnd)
     SetEntityInvincible(ped, true)
     World.apply(settings, true)
 
-    SendNUIMessage({ action = 'playback', data = { state = 'start', clips = musicClips(prepared), t = netNow() - a.startAt } })
+    SendNUIMessage({ action = 'music', data = { group = 'cutscene', state = 'start', clips = musicClips(prepared), t = netNow() - a.startAt } })
 
     -- Pantalla en negro hasta t = 0
     while active == a and netNow() < a.startAt do
@@ -190,7 +190,7 @@ local function run(payload, onEnd)
             lastWeather = now
         end
         if now - lastSync > 1000 then
-            SendNUIMessage({ action = 'playback', data = { state = 'sync', t = t } })
+            SendNUIMessage({ action = 'music', data = { group = 'cutscene', state = 'sync', t = t } })
             lastSync = now
         end
 

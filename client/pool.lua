@@ -87,9 +87,21 @@ function EntityPool:apply(entity, pos, rot)
         current = nil
     end
 
-    -- sound y crowd no tienen entidad de juego todavía
-    if entity.kind ~= 'ped' and entity.kind ~= 'vehicle' and entity.kind ~= 'prop' then
-        self.items[entity.id] = { kind = entity.kind, model = entity.model, props = entity.props or {}, label = entity.label }
+    -- Emisor de sonido: sin entidad de juego, solo posición (de su pista de transform)
+    if entity.kind == 'sound' then
+        self.items[entity.id] = { kind = 'sound', sound = entity.sound, label = entity.label, props = {}, pos = pos or (current and current.pos) }
+        return true
+    end
+
+    -- Multitud: sus personas se crean por distancia en updateCrowds; se rehace si cambia su definición
+    if entity.kind == 'crowd' then
+        local key = json.encode(entity.crowd)
+        if not current or current.crowdKey ~= key then
+            if current and current.crowdSet then current.crowdSet:clear() end
+            current = { kind = 'crowd', label = entity.label, props = {}, crowdKey = key, crowd = entity.crowd, crowdSet = CrowdSet.new(entity.crowd) }
+            self.items[entity.id] = current
+        end
+        current.label = entity.label
         return true
     end
 
@@ -123,7 +135,11 @@ end
 
 function EntityPool:setPose(id, pos, rot)
     local item = self.items[id]
-    if not item or not item.handle or not pos then return end
+    if not item or not pos then return end
+    if not item.handle then
+        item.pos = pos
+        return
+    end
     SetEntityCoordsNoOffset(item.handle, pos[1] + 0.0, pos[2] + 0.0, pos[3] + 0.0, false, false, false)
     SetEntityRotation(item.handle, rot[1] + 0.0, rot[2] + 0.0, rot[3] + 0.0, 2, true)
 end
@@ -210,6 +226,7 @@ end
 function EntityPool:remove(id)
     local item = self.items[id]
     if not item then return end
+    if item.crowdSet then item.crowdSet:clear() end
     if item.handle and DoesEntityExist(item.handle) then
         SetEntityAsMissionEntity(item.handle, true, true)
         DeleteEntity(item.handle)
@@ -219,6 +236,44 @@ end
 
 function EntityPool:clear()
     for id in pairs(self.items) do self:remove(id) end
+end
+
+--- Crea o borra personas de las multitudes según la distancia a origin (vector3).
+function EntityPool:updateCrowds(origin, spawnDistance, despawnDistance, budget)
+    for _, item in pairs(self.items) do
+        if item.crowdSet then item.crowdSet:update(origin, spawnDistance, despawnDistance, budget) end
+    end
+end
+
+--- Peds vivos de este pool: actores más personas de multitudes
+function EntityPool:pedCount()
+    local count = 0
+    for _, item in pairs(self.items) do
+        if item.kind == 'ped' and item.handle then count = count + 1 end
+        if item.crowdSet then count = count + item.crowdSet.spawned end
+    end
+    return count
+end
+
+--- Emisores de sonido con posición, en el formato de Audio3D.set
+function EntityPool:emitters()
+    local out = {}
+    for id, item in pairs(self.items) do
+        if item.kind == 'sound' and item.sound and item.pos then
+            out[#out + 1] = {
+                id = id, asset = item.sound.asset, volume = item.sound.volume, range = item.sound.range,
+                loop = item.sound.loop, pos = item.pos,
+            }
+        end
+    end
+    return out
+end
+
+--- Id de la multitud a la que pertenece un ped, o nil
+function EntityPool:crowdOf(handle)
+    for id, item in pairs(self.items) do
+        if item.crowdSet and item.crowdSet:owns(handle) then return id end
+    end
 end
 
 function EntityPool:handle(id)
