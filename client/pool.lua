@@ -62,7 +62,49 @@ local function applyIdle(handle, props)
     end
 end
 
+-- Ropa codificada como "comp:dibujo:textura,...|prop:dibujo:textura,..." (ver editor 'playerOutfit')
+local function applyOutfit(handle, outfit)
+    SetPedDefaultComponentVariation(handle)
+    ClearAllPedProps(handle)
+    if type(outfit) ~= 'string' or outfit == '' then return end
+    local components, props = outfit:match('^([^|]*)|?(.*)$')
+    for c, d, t in (components or ''):gmatch('(%d+):(%-?%d+):(%d+)') do
+        SetPedComponentVariation(handle, tonumber(c), tonumber(d), tonumber(t), 0)
+    end
+    for p, d, t in (props or ''):gmatch('(%d+):(%-?%d+):(%d+)') do
+        if tonumber(d) >= 0 then SetPedPropIndex(handle, tonumber(p), tonumber(d), tonumber(t), true) end
+    end
+end
+
+local function applyLookAt(handle, lookAt)
+    if type(lookAt) == 'table' and lookAt[1] then
+        TaskLookAtCoord(handle, lookAt[1] + 0.0, lookAt[2] + 0.0, lookAt[3] + 0.0, -1, 2048, 3)
+    else
+        TaskClearLookAt(handle)
+    end
+end
+
+local function rgb(c)
+    return type(c) == 'table' and c[1] and c[2] and c[3]
+end
+
 local function applyVehicleProps(handle, props)
+    SetVehicleModKit(handle, 0)
+    if rgb(props.primary) then
+        SetVehicleCustomPrimaryColour(handle, props.primary[1], props.primary[2], props.primary[3])
+    else
+        ClearVehicleCustomPrimaryColour(handle)
+    end
+    if rgb(props.secondary) then
+        SetVehicleCustomSecondaryColour(handle, props.secondary[1], props.secondary[2], props.secondary[3])
+    else
+        ClearVehicleCustomSecondaryColour(handle)
+    end
+    if props.livery then SetVehicleLivery(handle, math.floor(props.livery)) end
+    SetVehicleWindowTint(handle, math.floor(props.windowTint or 0))
+    if type(props.plate) == 'string' and props.plate ~= '' then SetVehicleNumberPlateText(handle, props.plate:sub(1, 8)) end
+    ToggleVehicleMod(handle, 22, props.xenon == true)
+
     SetVehicleEngineOn(handle, props.engine == true, true, true)
     SetVehicleLights(handle, props.headlights and 2 or 1)
     SetVehicleSiren(handle, props.siren == true)
@@ -136,15 +178,32 @@ function EntityPool:apply(entity, pos, rot)
     self:setPose(entity.id, pos, rot)
 
     local props = entity.props or {}
+    local prev = current.props or {}
     if entity.kind == 'ped' then
-        local idleChanged = not same(props.anim, current.props.anim) or props.scenario ~= current.props.scenario
+        if props.outfit ~= prev.outfit or not current.outfitApplied then
+            applyOutfit(current.handle, props.outfit)
+            current.outfitApplied = true
+        end
+        local idleChanged = not same(props.anim, prev.anim) or props.scenario ~= prev.scenario
         if idleChanged and not current.timelineAnim then applyIdle(current.handle, props) end
+        -- Limpiar tareas también quita la mirada: se reaplica si cambió algo de lo anterior
+        if idleChanged or not same(props.lookAt, prev.lookAt) then applyLookAt(current.handle, props.lookAt) end
     elseif entity.kind == 'vehicle' then
         applyVehicleProps(current.handle, props)
     end
+
+    -- Opacidad y colisión (cualquier entidad del juego)
+    local alpha = tonumber(props.alpha)
+    if alpha and alpha < 255 then
+        SetEntityAlpha(current.handle, math.max(0, math.floor(alpha)), false)
+    else
+        ResetEntityAlpha(current.handle)
+    end
+    SetEntityCollision(current.handle, props.collision ~= false and current.visible ~= false, false)
     current.props = props
     current.label = entity.label
     current.screen = entity.screen
+    self:applyAttachments()
 
     return true
 end
@@ -152,6 +211,7 @@ end
 function EntityPool:setPose(id, pos, rot)
     local item = self.items[id]
     if not item or not pos then return end
+    if item.attachKey then return end -- pegado a otra entidad: la sigue a ella
     if not item.handle then
         item.pos, item.rot = pos, rot
         return
@@ -213,6 +273,31 @@ function EntityPool:setVisible(id, visible)
     if item.handle and DoesEntityExist(item.handle) then
         SetEntityVisible(item.handle, visible, false)
         SetEntityCollision(item.handle, visible, false)
+    end
+end
+
+--- Pega los props con props.attach = { to, bone, x, y, z, rx, ry, rz } a su entidad (hueso de ped o vehículo).
+--- Se repite tras crear o cambiar entidades: el destino puede crearse después que el prop.
+function EntityPool:applyAttachments()
+    for _, item in pairs(self.items) do
+        if item.kind == 'prop' and item.handle and DoesEntityExist(item.handle) then
+            local a = item.props and item.props.attach
+            local target = a and self.items[a.to]
+            local key = a and target and target.handle and (json.encode(a) .. ':' .. target.handle) or nil
+            if key ~= item.attachKey then
+                if item.attachKey then DetachEntity(item.handle, true, true) end
+                item.attachKey = nil
+                if key then
+                    local bone = 0
+                    if target.kind == 'ped' then bone = GetPedBoneIndex(target.handle, math.floor(a.bone or 57005)) end
+                    AttachEntityToEntity(item.handle, target.handle, bone,
+                        (a.x or 0) + 0.0, (a.y or 0) + 0.0, (a.z or 0) + 0.0,
+                        (a.rx or 0) + 0.0, (a.ry or 0) + 0.0, (a.rz or 0) + 0.0,
+                        false, false, false, false, 2, true)
+                    item.attachKey = key
+                end
+            end
+        end
     end
 end
 

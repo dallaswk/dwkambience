@@ -435,6 +435,22 @@ nui('revisionGet', function(data)
     return lib.callback.await('dwkambience:revisionGet', false, data.id, data.rev)
 end)
 
+-- Ropa del jugador para copiarla a un ped de la escena ("comp:dibujo:textura,...|prop:dibujo:textura,...")
+local FREEMODE = { [joaat('mp_m_freemode_01')] = 'mp_m_freemode_01', [joaat('mp_f_freemode_01')] = 'mp_f_freemode_01' }
+
+nui('playerOutfit', function()
+    local ped = PlayerPedId()
+    local components, props = {}, {}
+    for c = 0, 11 do
+        components[#components + 1] = ('%d:%d:%d'):format(c, GetPedDrawableVariation(ped, c), GetPedTextureVariation(ped, c))
+    end
+    for _, p in ipairs({ 0, 1, 2, 6, 7 }) do
+        props[#props + 1] = ('%d:%d:%d'):format(p, GetPedPropIndex(ped, p), math.max(0, GetPedPropTextureIndex(ped, p)))
+    end
+    -- El modelo solo se puede devolver por nombre si es uno de los freemode (el resto llega como hash)
+    return { ok = true, outfit = table.concat(components, ',') .. '|' .. table.concat(props, ','), model = FREEMODE[GetEntityModel(ped)] }
+end)
+
 -- Exportar / importar
 nui('export', function(data)
     return lib.callback.await('dwkambience:export', false, data.id)

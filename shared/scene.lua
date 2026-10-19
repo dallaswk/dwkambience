@@ -45,7 +45,7 @@ local MAX_PROPS = 32
 local MAX_CROWD_POINTS = 32
 local MAX_CROWD_MODELS = 16
 local MAX_PROP_ARRAY = 16
-local MAX_STRING = 128
+local MAX_STRING = 256
 
 --- Escena vacía para un tipo.
 function Scene.new(sceneType)
