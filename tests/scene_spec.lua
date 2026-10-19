@@ -1,35 +1,4 @@
--- Pruebas de shared/ sin el juego: lua tests/shared_spec.lua (desde la raíz del recurso)
-
-dofile('shared/scene.lua')
-
-local passed, failed = 0, 0
-
-local function test(name, fn)
-    local ok, err = pcall(fn)
-    if ok then
-        passed = passed + 1
-    else
-        failed = failed + 1
-        print(('FAIL  %s\n      %s'):format(name, err))
-    end
-end
-
-local function eq(a, b, msg)
-    if a ~= b then error(('%s: esperado %s, obtenido %s'):format(msg or 'eq', tostring(b), tostring(a)), 2) end
-end
-
-local function deepEq(a, b, path)
-    path = path or 'data'
-    if type(a) ~= type(b) then error(('%s: tipo %s ~= %s'):format(path, type(a), type(b)), 0) end
-    if type(a) ~= 'table' then
-        if a ~= b then error(('%s: %s ~= %s'):format(path, tostring(a), tostring(b)), 0) end
-        return
-    end
-    for k, v in pairs(a) do deepEq(v, b[k], path .. '.' .. tostring(k)) end
-    for k in pairs(b) do
-        if a[k] == nil then error(('%s.%s: falta'):format(path, tostring(k)), 0) end
-    end
-end
+-- Pruebas de shared/scene.lua
 
 local function sample()
     local data = Scene.new('cutscene')
@@ -91,11 +60,14 @@ test('sanitize ordena keys por t', function()
 end)
 
 local rejects = {
-    { 'schema distinto', function(d) d.schema = 2 end },
+    { 'schema distinto', function(d) d.schema = Scene.SCHEMA + 1 end },
     { 'tipo de entidad', function(d) d.entities[1].kind = 'tank' end },
     { 'modelo con caracteres raros', function(d) d.entities[1].model = 'elegy; drop' end },
     { 'id duplicado', function(d) d.entities[2].id = 'veh_1' end },
     { 'id reservado camera', function(d) d.entities[1].id = 'camera' end },
+    { 'id reservado music', function(d) d.entities[1].id = 'music' end },
+    { 'ease desconocido en cámara', function(d) d.tracks[2].keys[1].ease = 'wobble' end },
+    { 'cámara con target de entidad', function(d) d.tracks[2].target = 'veh_1' end },
     { 'pista a entidad inexistente', function(d) d.tracks[1].target = 'ghost' end },
     { 'canal desconocido', function(d) d.tracks[1].channel = 'lua' end },
     { 'NaN en posición', function(d) d.tracks[1].keys[1].pos[1] = 0 / 0 end },
@@ -162,5 +134,3 @@ test('stats cuenta entidades, keys y duración', function()
     eq(s.durationMs, 15000, 'duration')
 end)
 
-print(('%d ok, %d fallos'):format(passed, failed))
-if failed > 0 then os.exit(1) end

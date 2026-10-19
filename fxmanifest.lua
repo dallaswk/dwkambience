@@ -16,6 +16,8 @@ files {
 shared_scripts {
     '@ox_lib/init.lua',
     'config.lua',
+    'shared/interp.lua',
+    'shared/evaluate.lua',
     'shared/scene.lua',
 }
 

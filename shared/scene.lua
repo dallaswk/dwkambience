@@ -3,12 +3,16 @@
 
 Scene = Scene or {}
 
-Scene.SCHEMA = 1
+Scene.SCHEMA = 2
 
 Scene.TYPES = { cutscene = true, ambience = true }
 Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true }
-Scene.CHANNELS = { transform = true, camera = true, audio = true }
-Scene.EASES = { linear = true, ['in'] = true, out = true, inOut = true }
+Scene.CHANNELS = { transform = true, anim = true, camera = true, audio = true, event = true }
+Scene.EASES = { linear = true, ['in'] = true, out = true, inOut = true, spline = true }
+Scene.EVENT_TYPES = { fade = true, subtitle = true, trigger = true }
+
+-- Targets reservados que no son entidades: no se pueden usar como id de entidad
+Scene.RESERVED_TARGETS = { camera = true, events = true, music = true }
 
 Scene.WEATHERS = {
     CLEAR = true, EXTRASUNNY = true, CLOUDS = true, OVERCAST = true, RAIN = true, CLEARING = true,
@@ -24,6 +28,8 @@ local DEFAULT_LIMITS = {
 }
 
 local ID_PATTERN = '^[%w_%-]+$'
+local ANIM_DICT_PATTERN = '^[%w_@/%-%.]+$'
+local ANIM_CLIP_PATTERN = '^[%w_%-%.]+$'
 local MODEL_PATTERN = '^[%w_%-]+$'
 local TIME_PATTERN = '^(%d%d):(%d%d)$'
 
@@ -52,7 +58,10 @@ function Scene.new(sceneType)
 end
 
 -- Migraciones: Scene.MIGRATIONS[n] convierte un documento de schema n a n + 1.
-Scene.MIGRATIONS = {}
+Scene.MIGRATIONS = {
+    -- 1 -> 2: añade canales anim y event, ease 'spline' y el target 'music'. Los documentos v1 siguen siendo válidos.
+    [1] = function(data) return data end,
+}
 
 --- Lleva un documento al schema actual. Devuelve data o nil, error.
 function Scene.migrate(data)
@@ -195,7 +204,7 @@ local function cleanEntity(e, i)
     local path = ('entities[%d]'):format(i)
     if type(e) ~= 'table' then return nil, path end
     local id = cleanString(e.id, 32, ID_PATTERN)
-    if not id or id == 'camera' then return nil, path .. '.id' end
+    if not id or Scene.RESERVED_TARGETS[id] then return nil, path .. '.id' end
     if not Scene.KINDS[e.kind] then return nil, path .. '.kind' end
     local model = cleanString(e.model, 64, MODEL_PATTERN)
     if not model then return nil, path .. '.model' end
@@ -215,13 +224,22 @@ local function cleanEntity(e, i)
     }
 end
 
-local function cleanKey(k, channel, limits, path)
-    if type(k) ~= 'table' then return nil, path end
-    if math.type(k.t) ~= 'integer' and not (isFinite(k.t) and k.t % 1 == 0) then return nil, path .. '.t' end
-    local t = math.tointeger(k.t)
-    if t < 0 or t > limits.maxDurationMs then return nil, path .. '.t' end
+local function cleanTimeMs(value, limits)
+    if math.type(value) ~= 'integer' and not (isFinite(value) and value % 1 == 0) then return nil end
+    local t = math.tointeger(value)
+    if t < 0 or t > limits.maxDurationMs then return nil end
+    return t
+end
 
-    local out = { t = t }
+local function cleanPositiveMs(value, limits)
+    local ms = cleanTimeMs(value, limits)
+    return ms and ms > 0 and ms or nil
+end
+
+-- Keys de transform y cámara: posición, rotación y easing (fov solo en cámara)
+local function cleanPoseKey(k, channel, limits, path)
+    local out = { t = cleanTimeMs(k.t, limits) }
+    if not out.t then return nil, path .. '.t' end
     out.pos = cleanVec3(k.pos)
     out.rot = cleanVec3(k.rot)
     if not out.pos or not out.rot then return nil, path .. '.pos/rot' end
@@ -239,17 +257,83 @@ local function cleanKey(k, channel, limits, path)
     return out
 end
 
-local function cleanClip(c, limits, path)
-    if type(c) ~= 'table' then return nil, path end
-    if not isFinite(c.start) or c.start < 0 or c.start > limits.maxDurationMs then return nil, path .. '.start' end
+-- Keys de eventos: fade { to, duration }, subtitle { text, duration }, trigger { name }
+local function cleanEventKey(k, limits, path)
+    local out = { t = cleanTimeMs(k.t, limits) }
+    if not out.t then return nil, path .. '.t' end
+    if not Scene.EVENT_TYPES[k.type] then return nil, path .. '.type' end
+    out.type = k.type
+
+    if k.type == 'fade' then
+        if k.to ~= 0 and k.to ~= 1 then return nil, path .. '.to' end
+        out.to = k.to
+        out.duration = cleanTimeMs(k.duration, limits)
+        if not out.duration then return nil, path .. '.duration' end
+    elseif k.type == 'subtitle' then
+        out.text = cleanString(k.text, 200)
+        if not out.text then return nil, path .. '.text' end
+        out.duration = cleanPositiveMs(k.duration, limits)
+        if not out.duration then return nil, path .. '.duration' end
+    else
+        out.name = cleanString(k.name, 64, ID_PATTERN)
+        if not out.name then return nil, path .. '.name' end
+    end
+
+    return out
+end
+
+local function cleanAudioClip(c, limits, path)
+    local start = cleanTimeMs(c.start, limits)
+    if not start then return nil, path .. '.start' end
     local asset = cleanString(c.asset, 64, ID_PATTERN)
     if not asset then return nil, path .. '.asset' end
     local volume = c.volume == nil and 1.0 or c.volume
     if not isFinite(volume) or volume < 0 or volume > 1 then return nil, path .. '.volume' end
-    local fadeIn = c.fadeIn == nil and 0 or c.fadeIn
-    if not isFinite(fadeIn) or fadeIn < 0 then return nil, path .. '.fadeIn' end
+    local fadeIn = c.fadeIn == nil and 0 or cleanTimeMs(c.fadeIn, limits)
+    if not fadeIn then return nil, path .. '.fadeIn' end
     if c.loop ~= nil and type(c.loop) ~= 'boolean' then return nil, path .. '.loop' end
-    return { start = math.floor(c.start), asset = asset, volume = volume, loop = c.loop == true, fadeIn = math.floor(fadeIn) }
+    local out = { start = start, asset = asset, volume = volume, loop = c.loop == true, fadeIn = fadeIn }
+    if c.duration ~= nil then
+        out.duration = cleanPositiveMs(c.duration, limits)
+        if not out.duration then return nil, path .. '.duration' end
+    end
+    return out
+end
+
+local function cleanAnimClip(c, limits, path)
+    local start = cleanTimeMs(c.start, limits)
+    if not start then return nil, path .. '.start' end
+    local dict = cleanString(c.dict, 128, ANIM_DICT_PATTERN)
+    local clip = cleanString(c.clip, 64, ANIM_CLIP_PATTERN)
+    if not dict or not clip then return nil, path .. '.dict/clip' end
+    local length = cleanPositiveMs(c.length, limits)
+    if not length then return nil, path .. '.length' end
+    local duration = cleanPositiveMs(c.duration, limits)
+    if not duration then return nil, path .. '.duration' end
+    if c.loop ~= nil and type(c.loop) ~= 'boolean' then return nil, path .. '.loop' end
+    return { start = start, dict = dict, clip = clip, length = length, duration = duration, loop = c.loop == true }
+end
+
+-- Target válido para cada canal
+local function targetAllowed(channel, target, entityIds)
+    if channel == 'camera' then return target == 'camera' end
+    if channel == 'event' then return target == 'events' end
+    if channel == 'audio' then return target == 'music' or entityIds[target] == true end
+    return entityIds[target] == true
+end
+
+local function cleanList(list, limits, path, field, cleaner)
+    if list ~= nil and not isArray(list) then return nil, path .. '.' .. field end
+    local out = {}
+    for j, item in ipairs(list or {}) do
+        if j > limits.maxKeysPerTrack then return nil, path .. '.too_many_' .. field end
+        local itemPath = ('%s.%s[%d]'):format(path, field, j)
+        if type(item) ~= 'table' then return nil, itemPath end
+        local clean, err = cleaner(item, itemPath)
+        if not clean then return nil, err end
+        out[j] = clean
+    end
+    return out
 end
 
 local function cleanTrack(tr, i, entityIds, limits)
@@ -258,35 +342,30 @@ local function cleanTrack(tr, i, entityIds, limits)
     local id = cleanString(tr.id, 48, ID_PATTERN)
     if not id then return nil, path .. '.id' end
     if not Scene.CHANNELS[tr.channel] then return nil, path .. '.channel' end
-    if tr.channel == 'camera' then
-        if tr.target ~= 'camera' then return nil, path .. '.target' end
-    elseif not entityIds[tr.target] then
-        return nil, path .. '.target'
-    end
+    if not targetAllowed(tr.channel, tr.target, entityIds) then return nil, path .. '.target' end
 
     local out = { id = id, target = tr.target, channel = tr.channel }
+    local err
 
-    if tr.channel == 'audio' then
-        if tr.clips ~= nil and not isArray(tr.clips) then return nil, path .. '.clips' end
-        out.clips = {}
-        for j, c in ipairs(tr.clips or {}) do
-            if j > limits.maxKeysPerTrack then return nil, path .. '.too_many_clips' end
-            local clip, err = cleanClip(c, limits, ('%s.clips[%d]'):format(path, j))
-            if not clip then return nil, err end
-            out.clips[j] = clip
-        end
+    if tr.channel == 'audio' or tr.channel == 'anim' then
+        local cleaner = tr.channel == 'audio' and cleanAudioClip or cleanAnimClip
+        out.clips, err = cleanList(tr.clips, limits, path, 'clips', function(c, p) return cleaner(c, limits, p) end)
+        if not out.clips then return nil, err end
         table.sort(out.clips, function(a, b) return a.start < b.start end)
     else
-        if tr.keys ~= nil and not isArray(tr.keys) then return nil, path .. '.keys' end
-        out.keys = {}
-        local seen = {}
-        for j, k in ipairs(tr.keys or {}) do
-            if j > limits.maxKeysPerTrack then return nil, path .. '.too_many_keys' end
-            local key, err = cleanKey(k, tr.channel, limits, ('%s.keys[%d]'):format(path, j))
-            if not key then return nil, err end
-            if seen[key.t] then return nil, ('%s.keys[%d].t duplicated'):format(path, j) end
-            seen[key.t] = true
-            out.keys[j] = key
+        local cleaner = tr.channel == 'event'
+            and function(k, p) return cleanEventKey(k, limits, p) end
+            or function(k, p) return cleanPoseKey(k, tr.channel, limits, p) end
+        out.keys, err = cleanList(tr.keys, limits, path, 'keys', cleaner)
+        if not out.keys then return nil, err end
+
+        -- Dos keys en el mismo instante hacen ambiguo el estado en t (los eventos sí pueden coincidir)
+        if tr.channel ~= 'event' then
+            local seen = {}
+            for j, key in ipairs(out.keys) do
+                if seen[key.t] then return nil, ('%s.keys[%d].t duplicated'):format(path, j) end
+                seen[key.t] = true
+            end
         end
         table.sort(out.keys, function(a, b) return a.t < b.t end)
     end
