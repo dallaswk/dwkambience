@@ -3,7 +3,7 @@
 
 Scene = Scene or {}
 
-Scene.SCHEMA = 5
+Scene.SCHEMA = 6
 
 Scene.TYPES = { cutscene = true, ambience = true }
 Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true, text = true, light = true, ptfx = true }
@@ -64,6 +64,7 @@ function Scene.new(sceneType)
         },
         entities = {},
         tracks = {},
+        groups = {},
     }
 end
 
@@ -77,6 +78,8 @@ Scene.MIGRATIONS = {
     [3] = function(data) return data end,
     -- 4 -> 5: campo screen en props (texto pintado en la pantalla del modelo).
     [4] = function(data) return data end,
+    -- 5 -> 6: profundidad de campo en las keys de cámara y grupos (set pieces como bloque).
+    [5] = function(data) return data end,
 }
 
 --- Lleva un documento al schema actual. Devuelve data o nil, error.
@@ -436,6 +439,15 @@ local function cleanPoseKey(k, channel, limits, path)
         out.fov = k.fov
     end
 
+    -- Profundidad de campo: intensidad 0-1 y distancias de enfoque en metros
+    if channel == 'camera' and k.dofStrength ~= nil then
+        if not isFinite(k.dofStrength) or k.dofStrength < 0 or k.dofStrength > 1 then return nil, path .. '.dofStrength' end
+        if not isFinite(k.dofNear) or not isFinite(k.dofFar) or k.dofNear < 0 or k.dofFar <= k.dofNear or k.dofFar > 5000 then
+            return nil, path .. '.dof'
+        end
+        out.dofStrength, out.dofNear, out.dofFar = k.dofStrength, k.dofNear, k.dofFar
+    end
+
     return out
 end
 
@@ -616,11 +628,33 @@ function Scene.sanitize(data, limits)
         tracks[i] = clean
     end
 
+    -- Grupos (set pieces insertadas): cada entidad pertenece como mucho a uno
+    local groups, groupIds, grouped = {}, {}, {}
+    if data.groups ~= nil and not isArray(data.groups) then return nil, 'groups' end
+    for i, g in ipairs(data.groups or {}) do
+        local path = ('groups[%d]'):format(i)
+        if type(g) ~= 'table' then return nil, path end
+        local id = cleanString(g.id, 32, ID_PATTERN)
+        local label = cleanString(g.label, 64)
+        if not id or groupIds[id] then return nil, path .. '.id' end
+        if not label then return nil, path .. '.label' end
+        if not isArray(g.members) or #g.members == 0 then return nil, path .. '.members' end
+        local members = {}
+        for j, m in ipairs(g.members) do
+            if not entityIds[m] or grouped[m] then return nil, ('%s.members[%d]'):format(path, j) end
+            grouped[m] = true
+            members[j] = m
+        end
+        groupIds[id] = true
+        groups[i] = { id = id, label = label, members = members }
+    end
+
     return {
         schema = Scene.SCHEMA,
         settings = settings,
         entities = entities,
         tracks = tracks,
+        groups = groups,
     }
 end
 

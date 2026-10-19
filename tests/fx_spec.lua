@@ -127,3 +127,32 @@ test('schema 5: texto en pantalla solo en props y con campos válidos', function
     data.entities[1].kind = 'vehicle'
     eq(Scene.sanitize(data), nil, 'solo props')
 end)
+
+test('schema 6: DOF en keys de cámara se interpola y se valida', function()
+    local data = Scene.new('cutscene')
+    data.tracks = { { id = 'cam', target = 'camera', channel = 'camera', keys = {
+        { t = 0, pos = { 0, 0, 0 }, rot = { 0, 15, 0 }, fov = 40 },
+        { t = 1000, pos = { 0, 0, 0 }, rot = { 0, 0, 0 }, fov = 40, dofStrength = 1, dofNear = 2, dofFar = 20 },
+    } } }
+    assert(Scene.sanitize(data))
+    local cam = Evaluate.scene(Evaluate.prepare(data), 500).camera
+    near(cam.dof.strength, 0.5, 'intensidad a mitad')
+    near(cam.rot[2], 7.5, 'roll interpolado')
+    eq(Evaluate.scene(Evaluate.prepare(data), 0).camera.dof, nil, 'sin DOF al inicio')
+    data.tracks[1].keys[2].dofFar = 1
+    eq(Scene.sanitize(data), nil, 'lejos < cerca')
+end)
+
+test('schema 6: grupos con miembros existentes y sin repetir', function()
+    local data = Scene.new('cutscene')
+    data.entities = {
+        { id = 'ped_1', kind = 'ped', model = 'a', label = 'A', props = {}, networked = false },
+        { id = 'ped_2', kind = 'ped', model = 'b', label = 'B', props = {}, networked = false },
+    }
+    data.groups = { { id = 'grp_1', label = 'Pareja', members = { 'ped_1', 'ped_2' } } }
+    eq(#assert(Scene.sanitize(data)).groups, 1, 'grupo válido')
+    data.groups[2] = { id = 'grp_2', label = 'Otra', members = { 'ped_1' } }
+    eq(Scene.sanitize(data), nil, 'una entidad en dos grupos')
+    data.groups = { { id = 'grp_1', label = 'Fantasma', members = { 'ped_9' } } }
+    eq(Scene.sanitize(data), nil, 'miembro inexistente')
+end)

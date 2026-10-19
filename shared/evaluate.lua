@@ -41,11 +41,16 @@ function Evaluate.transform(keys, t)
     return Interp.vec3(keys, 'pos', i, x, false), Interp.vec3(keys, 'rot', i, x, true)
 end
 
---- pos, rot, fov de la pista de cámara en t, o nil.
+--- pos, rot, fov, dof de la pista de cámara en t, o nil. dof = { strength, near, far } o nil si es 0.
 function Evaluate.camera(keys, t)
     local i, x = Interp.segment(keys or {}, t)
     if not i then return nil end
-    return Interp.vec3(keys, 'pos', i, x, false), Interp.vec3(keys, 'rot', i, x, true), Interp.scalar(keys, 'fov', i, x, DEFAULT_FOV)
+    local dof
+    local strength = Interp.scalar(keys, 'dofStrength', i, x, 0)
+    if strength > 0.001 then
+        dof = { strength = strength, near = Interp.scalar(keys, 'dofNear', i, x, 1), far = Interp.scalar(keys, 'dofFar', i, x, 50) }
+    end
+    return Interp.vec3(keys, 'pos', i, x, false), Interp.vec3(keys, 'rot', i, x, true), Interp.scalar(keys, 'fov', i, x, DEFAULT_FOV), dof
 end
 
 --- Clip de animación activo en t: { dict, clip, phase (0-1) } o nil.
@@ -117,8 +122,8 @@ function Evaluate.scene(prepared, t)
     end
 
     local camera
-    local camPos, camRot, camFov = Evaluate.camera(prepared.camera, t)
-    if camPos then camera = { pos = camPos, rot = camRot, fov = camFov } end
+    local camPos, camRot, camFov, camDof = Evaluate.camera(prepared.camera, t)
+    if camPos then camera = { pos = camPos, rot = camRot, fov = camFov, dof = camDof } end
 
     return {
         entities = entities,
