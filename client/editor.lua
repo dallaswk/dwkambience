@@ -22,7 +22,7 @@ local function setFocus()
 end
 
 local function editorLoop()
-    local last, lastWorld = GetGameTimer(), 0
+    local last, lastWorld, lastCrowds = GetGameTimer(), 0, 0
     while isOpen do
         local now = GetGameTimer()
         local dt = (now - last) / 1000
@@ -37,6 +37,15 @@ local function editorLoop()
             World.apply(prepared.data.settings, false)
             lastWorld = now
         end
+
+        -- Personas de multitudes alrededor de la cámara (con el límite de peds de un ambience)
+        if now - lastCrowds > 1000 then
+            local origin = Freecam.get()
+            Entities:updateCrowds(origin, 400.0, 450.0, { left = Config.Ambience.maxPedsPerAmbience - Entities:pedCount() })
+            lastCrowds = now
+        end
+
+        if prepared then Select.drawZone(prepared.data.settings.trigger) end
 
         if not Gizmo.isRunning() then
             DisableAllControlActions(0)
@@ -69,12 +78,17 @@ local function applyCamera(state)
     Freecam.setFov(c.fov)
 end
 
+local function syncAudio()
+    Audio3D.set('editor', Entities:emitters())
+end
+
 --- Coloca entidades (y cámara en Camera view) en su estado en currentT
 local function applyTime()
     if not prepared then return end
     local state = Evaluate.scene(prepared, currentT)
     Entities:applyState(state)
     applyCamera(state)
+    syncAudio()
 end
 
 local function setCameraView(active)
@@ -98,6 +112,7 @@ local function closeScene()
     currentScene = nil
     prepared = nil
     Entities:clear()
+    Audio3D.clear('editor')
     Select.set(nil)
     setCameraView(false)
     worldPreview = false
@@ -114,6 +129,7 @@ local function teardown()
     worldPreview, previewing = false, false
     World.restore()
     Entities:clear()
+    Audio3D.clear('editor')
     Select.set(nil)
     Freecam.stop()
     SetNuiFocus(false, false)
@@ -136,6 +152,7 @@ local function loadScene(result)
     Select.set(nil)
     prepared = Evaluate.prepare(result.data)
     result.failed = Entities:load(prepared, 0)
+    syncAudio()
 
     local target
     for _, entity in ipairs(result.data.entities or {}) do
@@ -174,6 +191,11 @@ end)
 
 nui('create', function(data)
     closeScene()
+    -- Un ambience nuevo toma como centro de su zona el punto que mira la cámara
+    local camPos, camRot = Freecam.get()
+    local forward = Util.rotAxes(camRot)
+    local hit = Util.worldHit(camPos, camPos + forward * 200.0, PlayerPedId())
+    data.center = Util.vecToArray(hit or camPos, 3)
     local result = lib.callback.await('dwkambience:create', false, data)
     if result and result.ok then loadScene(result) end
     return result
@@ -280,6 +302,7 @@ nui('syncScene', function(data)
     prepared = Evaluate.prepare(data.data)
     Entities:sync(prepared, currentT)
     applyCamera(Evaluate.scene(prepared, currentT))
+    syncAudio()
 end)
 
 -- Scrub y reproducción en el editor: como mucho 60 mensajes/s desde la NUI
@@ -313,6 +336,29 @@ nui('animInfo', function(data)
     RemoveAnimDict(data.dict)
     if not seconds or seconds <= 0 then return { ok = false, error = 'invalid_anim' } end
     return { ok = true, length = math.floor(seconds * 1000) }
+end)
+
+-- Ambiences ---------------------------------------------------------------------
+
+-- Punto del mapa bajo un punto de pantalla (colocar puntos de multitud con clic)
+nui('worldPoint', function(data)
+    local camPos, camRot, fov = Freecam.get()
+    local dir = Util.screenRay(camRot, fov, tonumber(data.x) or 0.5, tonumber(data.y) or 0.5)
+    local hit = Util.worldHit(camPos, camPos + dir * 500.0, PlayerPedId())
+    if not hit then return { ok = false } end
+    return { ok = true, pos = Util.vecToArray(hit, 3) }
+end)
+
+-- Punto que mira la cámara (centro de zona, punto al que miran las multitudes...)
+nui('cameraPoint', function()
+    local camPos, camRot = Freecam.get()
+    local forward = Util.rotAxes(camRot)
+    local hit = Util.worldHit(camPos, camPos + forward * 200.0, PlayerPedId())
+    return { ok = true, pos = Util.vecToArray(hit or camPos, 3) }
+end)
+
+nui('setActive', function(data)
+    return lib.callback.await('dwkambience:setActive', false, data.id, data.active == true)
 end)
 
 -- Menús Mundo y Ajustes --------------------------------------------------------
