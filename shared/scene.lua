@@ -3,13 +3,17 @@
 
 Scene = Scene or {}
 
-Scene.SCHEMA = 2
+Scene.SCHEMA = 3
 
 Scene.TYPES = { cutscene = true, ambience = true }
 Scene.KINDS = { ped = true, vehicle = true, prop = true, sound = true, crowd = true }
 Scene.CHANNELS = { transform = true, anim = true, camera = true, audio = true, event = true }
 Scene.EASES = { linear = true, ['in'] = true, out = true, inOut = true, spline = true }
 Scene.EVENT_TYPES = { fade = true, subtitle = true, trigger = true }
+Scene.FACINGS = { random = true, along = true, point = true }
+
+-- Tipos con entidad de juego (necesitan modelo); sound y crowd se definen por sus propios campos
+Scene.GAME_KINDS = { ped = true, vehicle = true, prop = true }
 
 -- Targets reservados que no son entidades: no se pueden usar como id de entidad
 Scene.RESERVED_TARGETS = { camera = true, events = true, music = true }
@@ -25,6 +29,8 @@ local DEFAULT_LIMITS = {
     maxTracks = 1000,
     maxKeysPerTrack = 2000,
     maxDurationMs = 30 * 60 * 1000,
+    maxCrowd = 60,
+    maxPeds = nil, -- límite de peds (actores + multitudes); el servidor lo fija para los ambiences
 }
 
 local ID_PATTERN = '^[%w_%-]+$'
@@ -34,6 +40,8 @@ local MODEL_PATTERN = '^[%w_%-]+$'
 local TIME_PATTERN = '^(%d%d):(%d%d)$'
 
 local MAX_PROPS = 32
+local MAX_CROWD_POINTS = 32
+local MAX_CROWD_MODELS = 16
 local MAX_PROP_ARRAY = 16
 local MAX_STRING = 128
 
@@ -61,6 +69,8 @@ end
 Scene.MIGRATIONS = {
     -- 1 -> 2: añade canales anim y event, ease 'spline' y el target 'music'. Los documentos v1 siguen siendo válidos.
     [1] = function(data) return data end,
+    -- 2 -> 3: campos crowd y sound en entidades, settings.timecycle y modelo opcional en sound/crowd.
+    [2] = function(data) return data end,
 }
 
 --- Lleva un documento al schema actual. Devuelve data o nil, error.
@@ -188,6 +198,13 @@ local function cleanSettings(s)
         out.schedule = { from = from, to = to }
     end
 
+    if s.timecycle ~= nil then
+        local tc = s.timecycle
+        local name = type(tc) == 'table' and cleanString(tc.name, 64, ID_PATTERN)
+        if not name or not isFinite(tc.strength) or tc.strength < 0 or tc.strength > 1 then return nil, 'settings.timecycle' end
+        out.timecycle = { name = name, strength = tc.strength }
+    end
+
     if s.trigger ~= nil then
         local t = s.trigger
         local center = type(t) == 'table' and cleanVec3(t.center)
@@ -200,28 +217,89 @@ local function cleanSettings(s)
     return out
 end
 
-local function cleanEntity(e, i)
+local function cleanCrowd(c, limits, path)
+    if type(c) ~= 'table' then return nil, path end
+    local out = {}
+    out.preset = cleanString(c.preset, 32, ID_PATTERN)
+    if not out.preset then return nil, path .. '.preset' end
+
+    if math.type(c.count) ~= 'integer' and not (isFinite(c.count) and c.count % 1 == 0) then return nil, path .. '.count' end
+    out.count = math.tointeger(c.count)
+    if out.count < 1 or out.count > limits.maxCrowd then return nil, path .. '.count' end
+
+    if not isFinite(c.seed) or c.seed % 1 ~= 0 or c.seed < 1 or c.seed > 2147483646 then return nil, path .. '.seed' end
+    out.seed = math.tointeger(c.seed) or c.seed
+
+    if not isArray(c.points) or #c.points < 1 or #c.points > MAX_CROWD_POINTS then return nil, path .. '.points' end
+    out.points = {}
+    for j, p in ipairs(c.points) do
+        out.points[j] = cleanVec3(p)
+        if not out.points[j] then return nil, ('%s.points[%d]'):format(path, j) end
+    end
+
+    out.spread = c.spread == nil and 0 or c.spread
+    if not isFinite(out.spread) or out.spread < 0 or out.spread > 30 then return nil, path .. '.spread' end
+
+    out.facing = c.facing or 'random'
+    if not Scene.FACINGS[out.facing] then return nil, path .. '.facing' end
+    if out.facing == 'point' then
+        out.lookAt = cleanVec3(c.lookAt)
+        if not out.lookAt then return nil, path .. '.lookAt' end
+    end
+
+    if c.models ~= nil then
+        if not isArray(c.models) or #c.models > MAX_CROWD_MODELS then return nil, path .. '.models' end
+        out.models = {}
+        for j, m in ipairs(c.models) do
+            out.models[j] = cleanString(m, 64, MODEL_PATTERN)
+            if not out.models[j] then return nil, ('%s.models[%d]'):format(path, j) end
+        end
+    end
+    if c.scenario ~= nil then
+        out.scenario = cleanString(c.scenario, 64, ID_PATTERN)
+        if not out.scenario then return nil, path .. '.scenario' end
+    end
+    return out
+end
+
+local function cleanSound(snd, path)
+    if type(snd) ~= 'table' then return nil, path end
+    local asset = cleanString(snd.asset, 64, ID_PATTERN)
+    if not asset then return nil, path .. '.asset' end
+    local volume = snd.volume == nil and 1.0 or snd.volume
+    if not isFinite(volume) or volume < 0 or volume > 1 then return nil, path .. '.volume' end
+    local range = snd.range == nil and 30 or snd.range
+    if not isFinite(range) or range < 1 or range > 200 then return nil, path .. '.range' end
+    if snd.loop ~= nil and type(snd.loop) ~= 'boolean' then return nil, path .. '.loop' end
+    return { asset = asset, volume = volume, range = range, loop = snd.loop ~= false }
+end
+
+local function cleanEntity(e, i, limits)
     local path = ('entities[%d]'):format(i)
     if type(e) ~= 'table' then return nil, path end
     local id = cleanString(e.id, 32, ID_PATTERN)
     if not id or Scene.RESERVED_TARGETS[id] then return nil, path .. '.id' end
     if not Scene.KINDS[e.kind] then return nil, path .. '.kind' end
-    local model = cleanString(e.model, 64, MODEL_PATTERN)
-    if not model then return nil, path .. '.model' end
     local label = cleanString(e.label, 64)
     if not label then return nil, path .. '.label' end
     local props, err = cleanProps(e.props, path)
     if not props then return nil, err end
     if e.networked ~= nil and type(e.networked) ~= 'boolean' then return nil, path .. '.networked' end
 
-    return {
-        id = id,
-        kind = e.kind,
-        model = model,
-        label = label,
-        props = props,
-        networked = e.networked == true,
-    }
+    local out = { id = id, kind = e.kind, label = label, props = props, networked = e.networked == true }
+
+    if Scene.GAME_KINDS[e.kind] then
+        out.model = cleanString(e.model, 64, MODEL_PATTERN)
+        if not out.model then return nil, path .. '.model' end
+    elseif e.kind == 'crowd' then
+        out.crowd, err = cleanCrowd(e.crowd, limits, path .. '.crowd')
+        if not out.crowd then return nil, err end
+    elseif e.kind == 'sound' then
+        out.sound, err = cleanSound(e.sound, path .. '.sound')
+        if not out.sound then return nil, err end
+    end
+
+    return out
 end
 
 local function cleanTimeMs(value, limits)
@@ -389,14 +467,21 @@ function Scene.sanitize(data, limits)
 
     local entities, entityIds = {}, {}
     if data.entities ~= nil and not isArray(data.entities) then return nil, 'entities' end
+    local weight, peds = 0, 0
     for i, e in ipairs(data.entities or {}) do
-        if i > limits.maxEntities then return nil, 'too_many_entities' end
         local clean
-        clean, err = cleanEntity(e, i)
+        clean, err = cleanEntity(e, i, limits)
         if not clean then return nil, err end
         if entityIds[clean.id] then return nil, ('entities[%d].id duplicated'):format(i) end
         entityIds[clean.id] = true
         entities[i] = clean
+
+        -- Cada miembro de una multitud cuenta como una entidad para el límite del estudio
+        local w = Scene.entityWeight(clean)
+        weight = weight + w
+        if clean.kind == 'ped' or clean.kind == 'crowd' then peds = peds + w end
+        if weight > limits.maxEntities then return nil, 'too_many_entities' end
+        if limits.maxPeds and peds > limits.maxPeds then return nil, 'too_many_peds' end
     end
 
     local tracks, trackIds = {}, {}
@@ -422,6 +507,13 @@ end
 ---------------------------------------------------------------------------
 -- Consultas
 ---------------------------------------------------------------------------
+
+--- Cuántas entidades de juego representa (una multitud cuenta tantas como personas)
+function Scene.entityWeight(entity)
+    if entity.kind == 'crowd' then return entity.crowd and entity.crowd.count or 0 end
+    if entity.kind == 'sound' then return 0 end
+    return 1
+end
 
 --- Pista de un canal para un target, o nil.
 function Scene.findTrack(data, target, channel)
@@ -455,7 +547,15 @@ function Scene.stats(data)
         end
     end
     local duration = data.settings and data.settings.duration or 0
+    local weight, peds = 0, 0
+    for _, e in ipairs(data.entities or {}) do
+        local w = Scene.entityWeight(e)
+        weight = weight + w
+        if e.kind == 'ped' or e.kind == 'crowd' then peds = peds + w end
+    end
     return {
+        weight = weight,
+        peds = peds,
         entities = #(data.entities or {}),
         tracks = #(data.tracks or {}),
         keys = keys,

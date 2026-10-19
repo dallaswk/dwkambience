@@ -19,6 +19,7 @@ shared_scripts {
     'config.lua',
     'shared/interp.lua',
     'shared/evaluate.lua',
+    'shared/crowd.lua',
     'shared/scene.lua',
 }
 

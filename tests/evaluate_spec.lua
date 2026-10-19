@@ -31,16 +31,16 @@ local function scene()
     return data
 end
 
-test('la escena de ejemplo es válida en schema 2', function()
+test('la escena de ejemplo es válida en el schema actual', function()
     assert(Scene.sanitize(scene()))
 end)
 
-test('migrate lleva un documento v1 a v2', function()
+test('migrate lleva un documento v1 al schema actual', function()
     local data = scene()
     data.schema = 1
     data.tracks = { data.tracks[1] }
     local out = assert(Scene.migrate(data))
-    eq(out.schema, 2, 'schema')
+    eq(out.schema, Scene.SCHEMA, 'schema')
     assert(Scene.sanitize(out))
 end)
 
