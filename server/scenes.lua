@@ -42,13 +42,16 @@ local function cleanMeta(meta)
     return name, group
 end
 
-local function studioLimits(studioId)
+local function studioLimits(studioId, sceneType)
     local studio = Config.Studios[studioId] or Config.Studios[Config.DefaultStudio]
+    local ambience = sceneType == 'ambience'
     return {
         maxEntities = studio.maxEntities,
         maxTracks = Config.Limits.maxTracks,
         maxKeysPerTrack = Config.Limits.maxKeysPerTrack,
         maxDurationMs = Config.Limits.maxDurationMs,
+        maxCrowd = Config.Ambience.maxPedsPerAmbience,
+        maxPeds = ambience and Config.Ambience.maxPedsPerAmbience or nil,
     }
 end
 
@@ -103,6 +106,17 @@ register('dwkambience:create', function(src, payload)
     if not name then return fail(err) end
 
     local data = Scene.new(payload.type)
+    -- Un ambience nace con su zona en el punto donde está la cámara del editor
+    if payload.type == 'ambience' then
+        local c = payload.center
+        if type(c) == 'table' and tonumber(c[1]) and tonumber(c[2]) and tonumber(c[3]) then
+            data.settings.trigger = {
+                center = { tonumber(c[1]) + 0.0, tonumber(c[2]) + 0.0, tonumber(c[3]) + 0.0 },
+                enter = Config.Ambience.defaultEnter,
+                exit = Config.Ambience.defaultExit,
+            }
+        end
+    end
     local stats = Scene.stats(data)
     local id = MySQL.insert.await([[
         INSERT INTO scenes (name, type, group_name, studio, duration_ms, data, schema_version, updated_by)
@@ -131,12 +145,14 @@ register('dwkambience:save', function(src, payload)
     local name, group, err = cleanMeta(payload.meta)
     if not name then return fail(err) end
 
-    local row = MySQL.single.await('SELECT studio FROM scenes WHERE id = ?', { id })
+    local row = MySQL.single.await('SELECT studio, type, active FROM scenes WHERE id = ?', { id })
     if not row then return fail('not_found') end
 
     local data
-    data, err = Scene.sanitize(payload.data, studioLimits(row.studio))
-    if not data then return fail('invalid: ' .. err) end
+    data, err = Scene.sanitize(payload.data, studioLimits(row.studio, row.type))
+    if not data then return fail((err == 'too_many_entities' or err == 'too_many_peds') and err or ('invalid: ' .. err)) end
+    -- El interruptor on/off solo se cambia con dwkambience:setActive; el guardado conserva el valor actual
+    data.settings.active = row.active == 1 or row.active == true
 
     local encoded = json.encode(data)
     if #encoded > Config.MaxDataBytes then return fail('too_large') end
@@ -168,6 +184,7 @@ register('dwkambience:save', function(src, payload)
     if not saved then return fail('db_error') end
 
     Log.action(src, 'Escena guardada', ('#%d %s rev %d (%d entidades, %d keys)'):format(id, name, rev, stats.entities, stats.keys))
+    if row.type == 'ambience' then Ambience.refresh(id) end
 
     local updated = MySQL.single.await(('SELECT %s FROM scenes WHERE id = ?'):format(LIST_COLUMNS), { id })
     return { ok = true, meta = rowToMeta(updated), rev = rev }
@@ -190,6 +207,7 @@ register('dwkambience:delete', function(src, id)
 
     MySQL.update.await('DELETE FROM scenes WHERE id = ?', { id })
     Locks.release(id, src)
+    Ambience.remove(id)
     Log.action(src, 'Escena borrada', ('#%d %s'):format(id, row.name))
     return { ok = true }
 end)

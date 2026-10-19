@@ -42,6 +42,7 @@ server_scripts {
     'server/migrations.lua',
     'server/scenes.lua',
     'server/playback.lua',
+    'server/ambience.lua',
     'server/main.lua',
 }
 
