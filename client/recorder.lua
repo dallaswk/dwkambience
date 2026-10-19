@@ -4,6 +4,7 @@ Recorder = {}
 
 local cfg = Config.Recording
 local recording = false
+local restore -- devuelve al jugador a su sitio (también si el recurso se para a mitad)
 
 function Recorder.isActive()
     return recording
@@ -40,6 +41,9 @@ function Recorder.run(opts)
 
     -- Se lleva al jugador (o su coche) a la pose de la entidad y luego se le devuelve a donde estaba
     local home, homeHeading = GetEntityCoords(target), GetEntityHeading(target)
+    restore = function()
+        if DoesEntityExist(target) then teleport(target, home, homeHeading) end
+    end
     FreezeEntityPosition(ped, false)
     if opts.from then
         teleport(target, vector3(opts.from.pos[1], opts.from.pos[2], opts.from.pos[3]), opts.from.rot[3] + 0.0)
@@ -70,10 +74,18 @@ function Recorder.run(opts)
         Wait(0)
     end
 
-    teleport(target, home, homeHeading)
+    restore()
+    restore = nil
     FreezeEntityPosition(ped, true)
     recording = false
 
     if #samples < 2 then return nil, 'too_short' end
     return Rdp.toKeys(samples, cfg.epsilon, opts.startT)
 end
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() and recording and restore then
+        restore()
+        FreezeEntityPosition(PlayerPedId(), false)
+    end
+end)

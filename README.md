@@ -1,5 +1,7 @@
 # dwkambience
 
+Versión 1.0.0.
+
 Editor in-game de cutscenes y ambiences para FiveM. Alcance y roadmap en [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Instalación
@@ -56,6 +58,18 @@ jugador al entrar en su radio y se limpia al salir, en bucle y sin quitarle el c
 - Horario opcional con la hora del juego (admite franjas que cruzan medianoche).
 - Límites en `config.lua` (`Config.Ambience`): 60 peds por ambience y 100 en total por jugador.
 - Presets de multitudes en `Config.CrowdPresets`; la semilla hace que todos vean la misma gente.
+
+## Efectos, grabación y set pieces
+
+- **Texto 3D, luces y partículas**: paletas Texto, Luces y Partículas. Las luces se limitan a 16 a la vez
+  (las más cercanas) y las partículas salen del catálogo `Config.PtfxCatalog`. Límites en `Config.Fx`.
+- **Visibilidad**: "Ocultar/Mostrar desde aquí" (tecla H) crea keys de visibilidad para que cualquier
+  entidad o efecto aparezca o desaparezca en un instante.
+- **Grabación en vivo (REC, tecla R)**: con un actor o coche seleccionado, caminas o conduces con tu
+  propio personaje (o el coche en el que vas) desde su pose; el timeline avanza a la vez. Retroceso termina,
+  la trayectoria se simplifica (RDP, `Config.Recording.epsilon`) y sustituye ese tramo de la pista.
+- **Set pieces**: selecciona entidades (Ctrl+clic) y guárdalas desde el botón Set pieces; al insertarlas
+  se colocan donde mira la cámara y a partir del instante actual, con ids nuevos.
 
 ## Música
 

@@ -15,7 +15,7 @@ dwkambience/
   fxmanifest.lua
   config.lua            -- límites por estudio, radios, permisos, presets
   shared/               -- esquema de escena, interpolación (lineal, ease, Catmull-Rom), utilidades puras
-  client/               -- free cam, gizmo, spawn local, evaluador de timeline, reproducción
+  client/               -- free cam, gizmo, pool de entidades, efectos, grabación, reproducción, ambiences
   server/               -- CRUD, validación, permisos ACE, locks, disparo de cutscenes, exports
   sql/                  -- migraciones NNN_nombre.sql, aplicadas una vez al arrancar (server/migrations.lua)
   web/                  -- app Vue (src/, public/sounds/*.ogg)

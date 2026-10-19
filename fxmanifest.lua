@@ -4,7 +4,7 @@ lua54 'yes'
 
 name 'dwkambience'
 description 'Editor in-game de cutscenes y ambiences'
-version '0.1.0'
+version '1.0.0'
 
 ui_page 'web/dist/index.html'
 
