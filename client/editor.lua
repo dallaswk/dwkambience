@@ -411,6 +411,12 @@ nui('record', function(data)
     return { ok = true }
 end)
 
+-- Set pieces: puente directo con el servidor
+nui('setPieces', function() return lib.callback.await('dwkambience:setPieces', false) end)
+nui('setPieceGet', function(data) return lib.callback.await('dwkambience:setPieceGet', false, data.id) end)
+nui('setPieceSave', function(data) return lib.callback.await('dwkambience:setPieceSave', false, data) end)
+nui('setPieceDelete', function(data) return lib.callback.await('dwkambience:setPieceDelete', false, data.id) end)
+
 -- Menús Mundo y Ajustes --------------------------------------------------------
 
 nui('camSpeed', function(data)
