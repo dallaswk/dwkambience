@@ -27,3 +27,31 @@ El idioma de la UI se elige en `config.lua` (`Config.Locale = 'es'` o `'en'`). L
 | Guardar | Ctrl+S |
 | Borrar selección | Supr |
 | Encuadrar selección | F |
+
+## Reproducir cutscenes
+
+`/cutscene <id> [me|all|1,2,3] [noskip]` reproduce una cutscene (por defecto, para quien lo escribe).
+`/cutscene stop [me|all|1,2,3]` la para. Requiere el mismo permiso que el editor. El jugador puede
+saltarla con Retroceso salvo con `noskip`.
+
+Desde otros recursos (servidor):
+
+```lua
+local session, err = exports.dwkambience:PlayCutscene(sceneId, targets, { skippable = true })
+exports.dwkambience:StopCutscene(targets) -- targets: id, lista de ids o 'all'
+
+AddEventHandler('dwkambience:finished', function(sceneId, playerId, skipped) end)
+```
+
+En el cliente se emiten `dwkambience:finished (sceneId, skipped)` y, por cada key de tipo trigger,
+`dwkambience:trigger (sceneId, name)`.
+
+## Música
+
+Copia los `.ogg` a `web/public/sounds/`, compila (`npm run build`) y reinicia el recurso: aparecen en
+el botón Música del timeline. El id de cada sonido es el nombre del archivo sin extensión.
+
+## Depuración
+
+`setr dwkambience_debug 1` muestra en pantalla la sesión, el tiempo `t` y cuánto tarde empezó cada
+cliente (si la precarga no llegó a tiempo).
