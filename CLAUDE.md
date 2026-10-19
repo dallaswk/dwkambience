@@ -17,7 +17,7 @@ dwkambience/
   shared/               -- esquema de escena, interpolación (lineal, ease, Catmull-Rom), utilidades puras
   client/               -- free cam, gizmo, spawn local, evaluador de timeline, reproducción
   server/               -- CRUD, validación, permisos ACE, locks, disparo de cutscenes, exports
-  sql/                  -- migraciones (scenes, scene_revisions, scene_assets)
+  sql/                  -- migraciones NNN_nombre.sql, aplicadas una vez al arrancar (server/migrations.lua)
   web/                  -- app Vue (src/, public/sounds/*.ogg)
   docs/PLAN.md
 ```
@@ -31,6 +31,7 @@ dwkambience/
 5. **El servidor valida todo guardado** contra el esquema y comprueba el ACE `cutscene.editor`. Nunca confiar en datos del cliente.
 6. **Limpieza garantizada.** Todo lo que se crea (entidades, cámaras, timecycle, clima, ptfx, audio) se registra y se destruye al parar, al salir de zona y en `onResourceStop`.
 7. **Schema versionado.** Cualquier cambio en el formato de `data` sube `schema` y añade una migración en `shared/`.
+8. **Migraciones SQL inmutables.** Un cambio de tablas es un fichero nuevo `sql/NNN_*.sql` añadido al final de `FILES` en `server/migrations.lua`; nunca se edita una migración ya publicada.
 
 ## UI (design system v2.0)
 

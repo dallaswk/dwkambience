@@ -5,14 +5,15 @@ Editor in-game de cutscenes y ambiences para FiveM. Alcance y roadmap en [`docs/
 ## Instalación
 
 1. Dependencias: `ox_lib`, `oxmysql` (QB-Core opcional, para permisos por grupo).
-2. Ejecuta `sql/001_init.sql` en la base de datos.
-3. Compila la NUI: `cd web && npm install && npm run build`.
-4. Permisos en `server.cfg`:
+2. Compila la NUI: `cd web && npm install && npm run build`.
+3. Permisos en `server.cfg`:
    ```
    add_ace group.admin cutscene.editor allow
    ensure dwkambience
    ```
-5. In-game: `/scenes`.
+4. In-game: `/scenes`.
+
+Las tablas se crean solas al arrancar el recurso por primera vez: las migraciones de `sql/` se aplican una vez y quedan registradas en `dwkambience_migrations`.
 
 El idioma de la UI se elige en `config.lua` (`Config.Locale = 'es'` o `'en'`). Los textos están en `web/src/i18n.ts`.
 

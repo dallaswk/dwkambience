@@ -22,6 +22,7 @@ const ERRORS: Record<string, MessageKey> = {
   too_large: 'errTooLarge',
   corrupt_scene: 'errCorrupt',
   db_error: 'errDb',
+  db_not_ready: 'errDbNotReady',
 }
 
 // Los errores de validación del servidor ('invalid: ...') se muestran tal cual

@@ -33,6 +33,7 @@ server_scripts {
     'server/log.lua',
     'server/permissions.lua',
     'server/locks.lua',
+    'server/migrations.lua',
     'server/scenes.lua',
     'server/main.lua',
 }

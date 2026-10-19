@@ -52,6 +52,14 @@ local function studioLimits(studioId)
     }
 end
 
+-- Callback que necesita la base de datos: espera a que las migraciones estén aplicadas
+local function register(name, handler)
+    lib.callback.register(name, function(src, ...)
+        if not Migrations.ready then return fail('db_not_ready') end
+        return handler(src, ...)
+    end)
+end
+
 local function sceneId(value)
     local id = math.tointeger(tonumber(value))
     return id and id > 0 and id or nil
@@ -80,7 +88,7 @@ local function openFor(src, id)
     }
 end
 
-lib.callback.register('dwkambience:list', function(src)
+register('dwkambience:list', function(src)
     if not Permissions.canEdit(src) then return fail('forbidden') end
     local rows = MySQL.query.await(('SELECT %s FROM scenes ORDER BY group_name, name'):format(LIST_COLUMNS))
     local list = {}
@@ -88,7 +96,7 @@ lib.callback.register('dwkambience:list', function(src)
     return { ok = true, scenes = list }
 end)
 
-lib.callback.register('dwkambience:create', function(src, payload)
+register('dwkambience:create', function(src, payload)
     if not Permissions.canEdit(src) then return fail('forbidden') end
     if type(payload) ~= 'table' or not Scene.TYPES[payload.type] then return fail('bad_type') end
     local name, group, err = cleanMeta(payload)
@@ -106,14 +114,14 @@ lib.callback.register('dwkambience:create', function(src, payload)
     return openFor(src, id)
 end)
 
-lib.callback.register('dwkambience:open', function(src, id)
+register('dwkambience:open', function(src, id)
     if not Permissions.canEdit(src) then return fail('forbidden') end
     id = sceneId(id)
     if not id then return fail('bad_id') end
     return openFor(src, id)
 end)
 
-lib.callback.register('dwkambience:save', function(src, payload)
+register('dwkambience:save', function(src, payload)
     if not Permissions.canEdit(src) then return fail('forbidden') end
     if type(payload) ~= 'table' then return fail('bad_request') end
     local id = sceneId(payload.id)
@@ -171,7 +179,7 @@ lib.callback.register('dwkambience:close', function(src, id)
     return { ok = true }
 end)
 
-lib.callback.register('dwkambience:delete', function(src, id)
+register('dwkambience:delete', function(src, id)
     if not Permissions.canEdit(src) then return fail('forbidden') end
     id = sceneId(id)
     if not id then return fail('bad_id') end

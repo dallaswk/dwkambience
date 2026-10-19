@@ -127,6 +127,7 @@ const en = {
   errTooLarge: 'Scene is too large to save',
   errCorrupt: 'Scene data is corrupt',
   errDb: 'Database error',
+  errDbNotReady: 'The database is not ready yet (check the server console)',
   errUnknown: 'Unknown error',
 }
 
@@ -258,6 +259,7 @@ const es: Record<MessageKey, string> = {
   errTooLarge: 'La escena es demasiado grande para guardarla',
   errCorrupt: 'Los datos de la escena están corruptos',
   errDb: 'Error de base de datos',
+  errDbNotReady: 'La base de datos aún no está lista (revisa la consola del servidor)',
   errUnknown: 'Error desconocido',
 }
 
