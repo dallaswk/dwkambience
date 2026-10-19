@@ -46,6 +46,17 @@ AddEventHandler('dwkambience:finished', function(sceneId, playerId, skipped) end
 En el cliente se emiten `dwkambience:finished (sceneId, skipped)` y, por cada key de tipo trigger,
 `dwkambience:trigger (sceneId, name)`.
 
+## Ambiences
+
+Un ambience es una escena viva en el mundo (multitudes, coches, sonido, clima) que aparece para cada
+jugador al entrar en su radio y se limpia al salir, en bucle y sin quitarle el control.
+
+- Se crea en el editor con tipo Ambience; su zona nace donde mira la cámara (ajústala en el panel de escena).
+- El interruptor **Activo en el servidor** (panel de escena o ON/OFF en la lista) lo enciende para todos al momento.
+- Horario opcional con la hora del juego (admite franjas que cruzan medianoche).
+- Límites en `config.lua` (`Config.Ambience`): 60 peds por ambience y 100 en total por jugador.
+- Presets de multitudes en `Config.CrowdPresets`; la semilla hace que todos vean la misma gente.
+
 ## Música
 
 Copia los `.ogg` a `web/public/sounds/`, compila (`npm run build`) y reinicia el recurso: aparecen en
