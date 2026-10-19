@@ -1,0 +1,43 @@
+/* Design system v2.0. Todos los colores de la UI salen de aquí. */
+:root {
+  --font: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Superficies: la separación es por capa, no por borde */
+  --bg: #070809;
+  --surface-1: #0d0f11;
+  --surface-2: #14171a;
+  --surface-3: #1b1f23;
+  --surface-hover: #21262b;
+  --line: rgba(255, 255, 255, 0.06);
+
+  --text: #e8eaec;
+  --text-2: #9aa1a8;
+  --text-3: #626a72;
+
+  /* Acento: solo selección, acción principal y progreso */
+  --accent: #019685;
+  --accent-hover: #02ad99;
+  --accent-soft: rgba(1, 150, 133, 0.16);
+  --on-accent: #ffffff;
+
+  --warning: #d9a33b;
+  --danger: #d9534f;
+  --danger-soft: rgba(217, 83, 79, 0.14);
+
+  --scrim: rgba(7, 8, 9, 0.72);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  --topbar-h: 44px;
+  --left-w: 280px;
+  --right-w: 300px;
+  --timeline-h: 132px;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+}
