@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { t } from '../i18n'
 import { useConfirm } from '../stores/confirm'
 import { useEditor } from '../stores/editor'
 import type { SceneRow, SceneType } from '../types'
@@ -41,9 +42,9 @@ async function create() {
 
 async function remove(row: SceneRow) {
   const ok = await confirm.ask({
-    title: `Delete “${row.name}”?`,
-    body: 'The scene and its revision history will be removed. This cannot be undone.',
-    confirm: 'Delete scene',
+    title: t('deleteSceneTitle', { name: row.name }),
+    body: t('deleteSceneBody'),
+    confirm: t('deleteSceneConfirm'),
     danger: true,
   })
   if (ok) editor.deleteScene(row.id)
@@ -53,22 +54,22 @@ async function remove(row: SceneRow) {
 <template>
   <div class="manager">
     <section class="create">
-      <div class="section-title">New scene</div>
+      <div class="section-title">{{ t('newScene') }}</div>
       <div class="types">
         <button class="type" :class="{ on: type === 'cutscene' }" @click="type = 'cutscene'">
-          <Icon name="film" /> Cutscene
+          <Icon name="film" /> {{ t('cutscene') }}
         </button>
         <button class="type" :class="{ on: type === 'ambience' }" @click="type = 'ambience'">
-          <Icon name="waves" /> Ambience
+          <Icon name="waves" /> {{ t('ambience') }}
         </button>
       </div>
-      <input v-model="name" maxlength="64" placeholder="Scene name" @keydown.enter="create" />
-      <input v-model="group" maxlength="64" placeholder="Group (optional)" list="scene-groups" @keydown.enter="create" />
+      <input v-model="name" maxlength="64" :placeholder="t('sceneName')" @keydown.enter="create" />
+      <input v-model="group" maxlength="64" :placeholder="t('groupOptional')" list="scene-groups" @keydown.enter="create" />
       <datalist id="scene-groups">
         <option v-for="g in groups" :key="g" :value="g" />
       </datalist>
       <button class="btn primary" :disabled="!name.trim() || creating" @click="create">
-        <Icon name="plus" :size="14" /> Create {{ type }}
+        <Icon name="plus" :size="14" /> {{ t(type === 'cutscene' ? 'createCutscene' : 'createAmbience') }}
       </button>
     </section>
 
@@ -76,24 +77,24 @@ async function remove(row: SceneRow) {
       <div class="list-head">
         <label class="search">
           <Icon name="search" :size="14" />
-          <input v-model="search" placeholder="Search scenes" />
+          <input v-model="search" :placeholder="t('searchScenes')" />
         </label>
         <div class="filters">
           <button v-for="f in (['all', 'cutscene', 'ambience'] as const)" :key="f" :class="{ on: filter === f }" @click="filter = f">
-            {{ f === 'all' ? 'All' : f === 'cutscene' ? 'Cutscenes' : 'Ambiences' }}
+            {{ t(f === 'all' ? 'filterAll' : f === 'cutscene' ? 'filterCutscenes' : 'filterAmbiences') }}
           </button>
         </div>
       </div>
 
       <div class="scroll groups">
-        <p v-if="editor.loadingList && !editor.rows.length" class="faint empty">Loading…</p>
+        <p v-if="editor.loadingList && !editor.rows.length" class="faint empty">{{ t('loading') }}</p>
         <p v-else-if="!grouped.length" class="faint empty">
-          {{ editor.rows.length ? 'No scenes match' : 'No scenes yet. Create the first one above.' }}
+          {{ editor.rows.length ? t('noScenesMatch') : t('noScenesYet') }}
         </p>
         <div v-for="[groupName, items] in grouped" :key="groupName" class="group">
           <div class="group-title">
             <Icon name="folder" :size="14" />
-            {{ groupName || 'Ungrouped' }}
+            {{ groupName || t('ungrouped') }}
             <span class="faint">{{ items.length }}</span>
           </div>
           <div v-for="row in items" :key="row.id" class="row" @click="editor.openScene(row.id)">
@@ -101,11 +102,11 @@ async function remove(row: SceneRow) {
             <div class="row-main">
               <div class="row-name">{{ row.name }}</div>
               <div class="row-meta faint">
-                {{ row.entityCount }} {{ row.entityCount === 1 ? 'actor' : 'actors' }} · {{ row.keyCount }} keys
+                {{ t(row.entityCount === 1 ? 'actorCount' : 'actorsCount', { n: row.entityCount }) }} · {{ t('keysCount', { n: row.keyCount }) }}
                 <template v-if="row.lockedBy"> · <Icon name="lock" :size="11" /> {{ row.lockedBy }}</template>
               </div>
             </div>
-            <button class="btn icon ghost danger del" title="Delete" @click.stop="remove(row)">
+            <button class="btn icon ghost danger del" :title="t('delete')" @click.stop="remove(row)">
               <Icon name="trash" :size="14" />
             </button>
           </div>

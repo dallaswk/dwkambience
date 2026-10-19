@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, triggerRef } from 'vue'
+import { setLocale, t } from '../i18n'
+import type { MessageKey } from '../i18n'
 import { fetchNui } from '../nui'
 import {
   baseTransform, nextEntityId, normalizeScene, removeEntity as removeFromScene, setBaseTransform,
@@ -7,22 +9,23 @@ import {
 import type { EntityKind, OpenResult, Result, SceneData, SceneEntity, SceneMeta, SceneRow, SceneType, Studio, Vec3 } from '../types'
 import { useToasts } from './toasts'
 
-const ERRORS: Record<string, string> = {
-  forbidden: 'You do not have permission to use the scene editor',
-  not_locked: 'Someone else is editing this scene',
-  locked: 'Someone else is editing this scene',
-  not_found: 'Scene not found',
-  bad_name: 'Name must be 1–64 characters',
-  bad_group: 'Group must be up to 64 characters',
-  invalid_model: 'Unknown model',
-  spawn_failed: 'Could not spawn the entity',
-  too_many_entities: 'Studio entity limit reached',
-  too_large: 'Scene is too large to save',
-  corrupt_scene: 'Scene data is corrupt',
-  db_error: 'Database error',
+const ERRORS: Record<string, MessageKey> = {
+  forbidden: 'errForbidden',
+  not_locked: 'errLocked',
+  locked: 'errLocked',
+  not_found: 'errNotFound',
+  bad_name: 'errBadName',
+  bad_group: 'errBadGroup',
+  invalid_model: 'errInvalidModel',
+  spawn_failed: 'errSpawnFailed',
+  too_many_entities: 'errTooManyEntities',
+  too_large: 'errTooLarge',
+  corrupt_scene: 'errCorrupt',
+  db_error: 'errDb',
 }
 
-const errorText = (code?: string) => (code && (ERRORS[code] ?? code)) || 'Unknown error'
+// Los errores de validación del servidor ('invalid: ...') se muestran tal cual
+const errorText = (code?: string) => (code ? (ERRORS[code] ? t(ERRORS[code]) : code) : t('errUnknown'))
 
 function toStudios(raw: unknown): Record<number, Studio> {
   // Lua serializa { [1] = ... } como array JSON
@@ -40,6 +43,7 @@ export const useEditor = defineStore('editor', () => {
 
   const meta = ref<SceneMeta | null>(null)
   // Documento grande fuera de la reactividad profunda: se muta en sitio y se avisa con touch()
+  // Regla: se sustituye el objeto que cambia (entidad, key, settings), nunca se muta en sitio
   const scene = shallowRef<SceneData | null>(null)
   const readOnly = ref(false)
   const lockedBy = ref<string | null>(null)
@@ -67,7 +71,8 @@ export const useEditor = defineStore('editor', () => {
 
   // --- Ciclo de vida --------------------------------------------------------
 
-  function show(payload: { studios: unknown }) {
+  function show(payload: { studios: unknown; locale?: unknown }) {
+    setLocale(payload.locale)
     studios.value = toStudios(payload.studios)
     visible.value = true
     refreshList()
@@ -111,10 +116,10 @@ export const useEditor = defineStore('editor', () => {
     dirty.value = false
     savedAt.value = null
 
-    toasts.push(`Loaded ${result.meta.name}`, 'success')
-    if (result.readOnly) toasts.push(`Read only: ${result.lockedBy ?? 'someone'} is editing this scene`, 'warning', 6000)
+    toasts.push(t('loaded', { name: result.meta.name }), 'success')
+    if (result.readOnly) toasts.push(t('readOnlyBy', { who: result.lockedBy ?? t('someone') }), 'warning', 6000)
     const failed = Array.isArray(result.failed) ? result.failed : []
-    if (failed.length) toasts.push(`Could not spawn: ${failed.join(', ')}`, 'warning', 6000)
+    if (failed.length) toasts.push(t('couldNotSpawn', { list: failed.join(', ') }), 'warning', 6000)
   }
 
   async function createScene(name: string, type: SceneType, group: string) {
@@ -140,7 +145,7 @@ export const useEditor = defineStore('editor', () => {
     const result = await fetchNui<Result>('delete', { id })
     if (!result?.ok) return fail(result)
     if (meta.value?.id === id) resetScene()
-    toasts.push('Scene deleted')
+    toasts.push(t('sceneDeleted'))
     refreshList()
   }
 
@@ -167,7 +172,7 @@ export const useEditor = defineStore('editor', () => {
 
   function setSettings(patch: Partial<SceneData['settings']>) {
     if (!scene.value || readOnly.value) return
-    Object.assign(scene.value.settings, patch)
+    scene.value.settings = { ...scene.value.settings, ...patch }
     touch()
   }
 
@@ -190,7 +195,7 @@ export const useEditor = defineStore('editor', () => {
 
     const { id, label } = nextEntityId(scene.value, kind)
     const entity: SceneEntity = { id, kind, model, label, props: {}, networked: false }
-    scene.value.entities.push(entity)
+    scene.value.entities = [...scene.value.entities, entity]
     setBaseTransform(scene.value, id, point.pos, point.rot)
 
     if (!(await pushEntity(entity))) {
@@ -203,9 +208,11 @@ export const useEditor = defineStore('editor', () => {
   }
 
   function updateEntity(id: string, patch: Partial<Omit<SceneEntity, 'id' | 'kind'>>) {
-    const entity = scene.value?.entities.find((e) => e.id === id)
-    if (!entity || !canEdit.value) return
-    Object.assign(entity, patch)
+    if (!scene.value || !canEdit.value) return
+    const index = scene.value.entities.findIndex((e) => e.id === id)
+    if (index < 0) return
+    const entity = { ...scene.value.entities[index], ...patch }
+    scene.value.entities = scene.value.entities.map((e, i) => (i === index ? entity : e))
     touch()
     pushEntity(entity)
   }

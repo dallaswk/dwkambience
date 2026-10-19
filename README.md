@@ -14,6 +14,8 @@ Editor in-game de cutscenes y ambiences para FiveM. Alcance y roadmap en [`docs/
    ```
 5. In-game: `/scenes`.
 
+El idioma de la UI se elige en `config.lua` (`Config.Locale = 'es'` o `'en'`). Los textos están en `web/src/i18n.ts`.
+
 ## Controles del editor
 
 | Acción | Control |

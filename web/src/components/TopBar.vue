@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { t } from '../i18n'
+import type { MessageKey } from '../i18n'
 import { useEditor } from '../stores/editor'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
@@ -10,19 +12,19 @@ const emit = defineEmits<{ closeScene: []; exit: [] }>()
 
 const menu = ref<string | null>(null)
 
-const PALETTES: { kind: EntityKind; label: string }[] = [
-  { kind: 'ped', label: 'Peds' },
-  { kind: 'vehicle', label: 'Cars' },
-  { kind: 'prop', label: 'Props' },
+const PALETTES: { kind: EntityKind; label: MessageKey }[] = [
+  { kind: 'ped', label: 'palettePed' },
+  { kind: 'vehicle', label: 'paletteVehicle' },
+  { kind: 'prop', label: 'paletteProp' },
 ]
 
 const savedLabel = computed(() => {
-  if (editor.saving) return 'Saving…'
-  if (editor.readOnly) return 'Read only'
-  if (editor.dirty) return 'Unsaved changes'
+  if (editor.saving) return t('saving')
+  if (editor.readOnly) return t('readOnly')
+  if (editor.dirty) return t('unsaved')
   if (!editor.savedAt) return ''
   const d = new Date(editor.savedAt)
-  return `Saved ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return t('savedAt', { time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
 })
 
 const nearLimit = computed(() => !!editor.studio && editor.entityCount >= editor.studio.maxEntities * 0.9)
@@ -49,23 +51,23 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
       <span class="brand">dwkambience</span>
 
       <div class="menu-root">
-        <button class="btn ghost" :class="{ active: menu === 'file' }" @click="toggle('file')">File</button>
+        <button class="btn ghost" :class="{ active: menu === 'file' }" @click="toggle('file')">{{ t('file') }}</button>
         <div v-if="menu === 'file'" class="dropdown">
-          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">New / open scene…</button>
+          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">{{ t('newOpenScene') }}</button>
           <button :disabled="!editor.canEdit || !editor.dirty" @click="run(editor.save)">
-            Save <span class="faint">Ctrl+S</span>
+            {{ t('save') }} <span class="faint">Ctrl+S</span>
           </button>
-          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">Close scene</button>
+          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">{{ t('closeScene') }}</button>
           <div class="sep" />
-          <button @click="run(() => emit('exit'))">Exit editor</button>
+          <button @click="run(() => emit('exit'))">{{ t('exitEditor') }}</button>
         </div>
       </div>
 
       <div class="menu-root">
-        <button class="btn ghost" :class="{ active: menu === 'view' }" @click="toggle('view')">View</button>
+        <button class="btn ghost" :class="{ active: menu === 'view' }" @click="toggle('view')">{{ t('view') }}</button>
         <div v-if="menu === 'view'" class="dropdown">
           <button @click="run(editor.toggleLabels)">
-            <span>Entity labels</span>
+            <span>{{ t('entityLabels') }}</span>
             <span class="check" :class="{ on: editor.showLabels }" />
           </button>
         </div>
@@ -81,7 +83,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
           @click="toggle(p.kind)"
         >
           <Icon :name="p.kind" :size="15" />
-          {{ p.label }}
+          {{ t(p.label) }}
         </button>
         <PaletteMenu
           :kind="p.kind"
@@ -93,7 +95,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     </div>
 
     <div v-if="editor.meta" class="center">
-      <span class="faint">{{ editor.meta.group || 'Ungrouped' }}</span>
+      <span class="faint">{{ editor.meta.group || t('ungrouped') }}</span>
       <span class="faint">/</span>
       <span class="name">{{ editor.meta.name }}</span>
       <Icon v-if="editor.readOnly" name="lock" :size="13" class="faint" />
@@ -105,9 +107,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
         {{ editor.studio.label }} // {{ editor.entityCount }}/{{ editor.studio.maxEntities }}
       </span>
       <button v-if="editor.scene" class="btn primary" :disabled="!editor.canEdit || !editor.dirty || editor.saving" @click="editor.save">
-        <Icon name="save" :size="14" /> Save
+        <Icon name="save" :size="14" /> {{ t('save') }}
       </button>
-      <button class="btn icon ghost" title="Exit editor" @click="emit('exit')">
+      <button class="btn icon ghost" :title="t('exitEditor')" @click="emit('exit')">
         <Icon name="exit" />
       </button>
     </div>

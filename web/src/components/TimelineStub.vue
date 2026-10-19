@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../i18n'
 import { formatDuration } from '../scene'
 import { useEditor } from '../stores/editor'
 
@@ -9,11 +10,11 @@ const editor = useEditor()
 <template>
   <footer class="timeline">
     <div class="bar">
-      <span class="section-title">Timeline</span>
+      <span class="section-title">{{ t('timeline') }}</span>
       <span class="mono faint">0:00 / {{ formatDuration(editor.scene?.settings.duration ?? 0) }}</span>
     </div>
     <div class="lane">
-      <span class="faint">Multitrack timeline, keyframes and camera arrive in phase 1.</span>
+      <span class="faint">{{ t('timelineSoon') }}</span>
     </div>
   </footer>
 </template>

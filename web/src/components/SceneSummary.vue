@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { WEATHERS } from '../catalog'
+import { t } from '../i18n'
 import { formatDuration, sceneStats } from '../scene'
 import { useEditor } from '../stores/editor'
 
@@ -17,36 +18,36 @@ function onTime(e: Event) {
 
 <template>
   <div v-if="editor.meta && settings && stats" class="summary">
-    <div class="section-title">Scene</div>
+    <div class="section-title">{{ t('scene') }}</div>
     <div class="grid">
-      <label>Name</label>
+      <label>{{ t('name') }}</label>
       <input
         :value="editor.meta.name"
         maxlength="64"
         :disabled="editor.readOnly"
         @change="editor.setMeta({ name: ($event.target as HTMLInputElement).value.trim() || editor.meta!.name })"
       />
-      <label>Group</label>
+      <label>{{ t('group') }}</label>
       <input
         :value="editor.meta.group ?? ''"
         maxlength="64"
-        placeholder="Ungrouped"
+        :placeholder="t('ungrouped')"
         :disabled="editor.readOnly"
         @change="editor.setMeta({ group: ($event.target as HTMLInputElement).value.trim() || null })"
       />
-      <label>Type</label>
-      <span class="value">{{ editor.meta.type === 'cutscene' ? 'Cutscene' : 'Ambience' }}</span>
-      <label>Duration</label>
+      <label>{{ t('type') }}</label>
+      <span class="value">{{ t(editor.meta.type) }}</span>
+      <label>{{ t('duration') }}</label>
       <span class="value mono">{{ formatDuration(settings.duration) }}</span>
-      <label>Tracks</label>
-      <span class="value">{{ stats.tracks }} tracks · {{ stats.keys }} keys</span>
-      <label>Weather</label>
+      <label>{{ t('tracks') }}</label>
+      <span class="value">{{ t('tracksKeys', { tracks: stats.tracks, keys: stats.keys }) }}</span>
+      <label>{{ t('weather') }}</label>
       <select :value="settings.weather" :disabled="editor.readOnly" @change="editor.setSettings({ weather: ($event.target as HTMLSelectElement).value })">
         <option v-for="w in WEATHERS" :key="w" :value="w">{{ w }}</option>
       </select>
-      <label>Time</label>
+      <label>{{ t('time') }}</label>
       <input type="time" :value="settings.time" :disabled="editor.readOnly" @change="onTime" />
-      <label>Output</label>
+      <label>{{ t('output') }}</label>
       <div class="toggles">
         <label class="toggle">
           <input
@@ -55,7 +56,7 @@ function onTime(e: Event) {
             :disabled="editor.readOnly"
             @change="editor.setSettings({ output: { ...settings.output, letterbox: ($event.target as HTMLInputElement).checked } })"
           />
-          Letterbox
+          {{ t('letterbox') }}
         </label>
         <label class="toggle">
           <input
@@ -64,7 +65,7 @@ function onTime(e: Event) {
             :disabled="editor.readOnly"
             @change="editor.setSettings({ output: { ...settings.output, hud: ($event.target as HTMLInputElement).checked } })"
           />
-          HUD
+          {{ t('hud') }}
         </label>
       </div>
     </div>

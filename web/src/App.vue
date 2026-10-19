@@ -9,6 +9,7 @@ import TimelineStub from './components/TimelineStub.vue'
 import Toasts from './components/Toasts.vue'
 import TopBar from './components/TopBar.vue'
 import Viewport from './components/Viewport.vue'
+import { t } from './i18n'
 import { bootMock } from './mocks'
 import { fetchNui, inGame, onNuiMessage } from './nui'
 import { useConfirm } from './stores/confirm'
@@ -20,9 +21,9 @@ const confirm = useConfirm()
 async function confirmDiscard() {
   if (!editor.dirty || editor.readOnly) return true
   return confirm.ask({
-    title: 'Discard unsaved changes?',
-    body: `“${editor.meta?.name}” has changes that have not been saved.`,
-    confirm: 'Discard changes',
+    title: t('discardTitle'),
+    body: t('discardBody', { name: editor.meta?.name ?? '' }),
+    confirm: t('discardConfirm'),
     danger: true,
   })
 }
@@ -64,7 +65,7 @@ let stop: (() => void) | undefined
 
 onMounted(() => {
   stop = onNuiMessage(({ action, data }) => {
-    if (action === 'open') editor.show(data as { studios: unknown })
+    if (action === 'open') editor.show(data as { studios: unknown; locale?: unknown })
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
   })
@@ -89,7 +90,7 @@ onBeforeUnmount(() => {
     <aside class="left">
       <template v-if="editor.scene">
         <button class="back" @click="closeScene">
-          <span class="chev">‹</span> All scenes
+          <span class="chev">‹</span> {{ t('allScenes') }}
         </button>
         <Outliner />
         <SceneSummary />

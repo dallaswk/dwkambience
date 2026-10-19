@@ -1,5 +1,8 @@
 Config = {}
 
+-- Idioma de la UI y los avisos: 'es' o 'en'
+Config.Locale = 'es'
+
 -- Permisos: ACE (add_ace group.admin cutscene.editor allow) o grupos de QB-Core
 Config.Ace = 'cutscene.editor'
 Config.QBGroups = { 'god', 'admin' }

@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { t } from '../i18n'
+import type { MessageKey } from '../i18n'
 import { useEditor } from '../stores/editor'
 import type { EntityKind, SceneEntity } from '../types'
 import Icon from './Icon.vue'
 
 const editor = useEditor()
 
-const SECTIONS: { kind: EntityKind; label: string }[] = [
-  { kind: 'ped', label: 'Actors' },
-  { kind: 'vehicle', label: 'Vehicles' },
-  { kind: 'prop', label: 'Props' },
-  { kind: 'sound', label: 'Sound emitters' },
-  { kind: 'crowd', label: 'Crowds' },
+const SECTIONS: { kind: EntityKind; label: MessageKey }[] = [
+  { kind: 'ped', label: 'sectionPed' },
+  { kind: 'vehicle', label: 'sectionVehicle' },
+  { kind: 'prop', label: 'sectionProp' },
+  { kind: 'sound', label: 'sectionSound' },
+  { kind: 'crowd', label: 'sectionCrowd' },
 ]
 
 const sections = computed(() => {
@@ -27,15 +29,15 @@ function onClick(entity: SceneEntity) {
 <template>
   <div class="outliner">
     <div class="head">
-      <span class="section-title">In the scene</span>
+      <span class="section-title">{{ t('inTheScene') }}</span>
       <span class="faint count">{{ editor.entityCount }}</span>
     </div>
     <div class="scroll tree">
       <p v-if="!sections.length" class="faint empty">
-        Empty scene. Add peds, cars or props from the palettes in the top bar.
+        {{ t('emptyScene') }}
       </p>
       <div v-for="section in sections" :key="section.kind" class="section">
-        <div class="section-label faint">{{ section.label }}</div>
+        <div class="section-label faint">{{ t(section.label) }}</div>
         <button
           v-for="entity in section.items"
           :key="entity.id"

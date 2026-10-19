@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { CATALOG } from '../catalog'
+import { t } from '../i18n'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
 
@@ -44,7 +45,7 @@ function choose(model: string) {
       <input
         ref="input"
         v-model="query"
-        placeholder="Search or type a model name"
+        :placeholder="t('paletteSearch')"
         @keydown.enter="custom ? choose(custom) : items[0] && choose(items[0].model)"
         @keydown.esc="emit('close')"
       />
@@ -53,7 +54,7 @@ function choose(model: string) {
       <li v-if="custom">
         <button @click="choose(custom)">
           <Icon name="plus" :size="14" />
-          <span>Spawn <b class="mono">{{ custom }}</b></span>
+          <span class="mono">{{ t('paletteSpawn', { model: custom }) }}</span>
         </button>
       </li>
       <li v-for="item in items" :key="item.model">
@@ -62,7 +63,7 @@ function choose(model: string) {
           <span class="mono faint">{{ item.model }}</span>
         </button>
       </li>
-      <li v-if="!items.length && !custom" class="empty faint">No matches</li>
+      <li v-if="!items.length && !custom" class="empty faint">{{ t('noMatches') }}</li>
     </ul>
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
+import { t } from '../i18n'
 import { fetchNui } from '../nui'
 import { useEditor } from '../stores/editor'
 
@@ -35,10 +36,10 @@ onBeforeUnmount(() => window.removeEventListener('mouseup', onUp))
 <template>
   <div class="viewport" :class="{ looking }" @mousedown="onDown" @contextmenu.prevent>
     <div v-if="editor.scene && !editor.gizmoActive" class="hint">
-      Hold <b>right mouse</b> + WASD to fly · <b>Q/E</b> down/up · <b>Shift</b> fast · <b>Click</b> to select
+      {{ t('viewportHint') }}
     </div>
     <div v-if="editor.gizmoActive" class="gizmo-banner">
-      Gizmo active · <b>W</b> move · <b>R</b> rotate · <b>Enter</b> confirm · <b>Esc</b> cancel
+      {{ t('gizmoBanner') }}
     </div>
   </div>
 </template>

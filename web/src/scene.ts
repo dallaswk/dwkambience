@@ -1,13 +1,15 @@
+import { t } from './i18n'
+import type { MessageKey } from './i18n'
 import type { EntityKind, Key, SceneData, SceneEntity, SceneType, Track, Vec3 } from './types'
 
 export const SCHEMA = 1
 
-export const KIND_LABEL: Record<EntityKind, string> = {
-  ped: 'Ped',
-  vehicle: 'Vehicle',
-  prop: 'Prop',
-  sound: 'Sound',
-  crowd: 'Crowd',
+export const KIND_LABEL: Record<EntityKind, MessageKey> = {
+  ped: 'kindPed',
+  vehicle: 'kindVehicle',
+  prop: 'kindProp',
+  sound: 'kindSound',
+  crowd: 'kindCrowd',
 }
 
 const KIND_PREFIX: Record<EntityKind, string> = {
@@ -79,7 +81,7 @@ export function nextEntityId(scene: SceneData, kind: EntityKind): { id: string; 
     const match = e.id.match(new RegExp(`^${prefix}_(\\d+)$`))
     if (match) max = Math.max(max, Number(match[1]))
   }
-  return { id: `${prefix}_${max + 1}`, label: `${KIND_LABEL[kind]} ${max + 1}` }
+  return { id: `${prefix}_${max + 1}`, label: `${t(KIND_LABEL[kind])} ${max + 1}` }
 }
 
 export function transformTrack(scene: SceneData, entityId: string): Track | undefined {
@@ -99,13 +101,10 @@ export function setBaseTransform(scene: SceneData, entityId: string, pos: Vec3, 
     track = { id: `tr_${entityId}`, target: entityId, channel: 'transform', keys: [] }
     scene.tracks.push(track)
   }
+  // Se sustituye la key en vez de mutarla: los computed que la devuelven tienen que ver un objeto nuevo
   const key = baseTransform(scene, entityId)
-  if (key) {
-    key.pos = pos
-    key.rot = rot
-  } else {
-    track.keys = [{ t: 0, pos, rot }]
-  }
+  const keys = track.keys ?? []
+  track.keys = key ? keys.map((k) => (k === key ? { ...k, pos, rot } : k)) : [{ t: 0, pos, rot }]
 }
 
 export function removeEntity(scene: SceneData, entityId: string) {

@@ -8,6 +8,8 @@ interface MockRow {
 }
 
 const STORAGE_KEY = 'dwkambience:mock-scenes'
+// Idioma del mock: ?lang=en en la URL para probar el inglés
+const LOCALE = new URLSearchParams(location.search).get('lang') ?? 'es'
 
 function load(): MockRow[] {
   try {
@@ -113,7 +115,7 @@ const handlers: Record<string, (data: any) => unknown> = {
   },
 
   exit: () => {
-    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1 } }, '*'), 800)
+    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE } }, '*'), 800)
     return { ok: true }
   },
 }
@@ -126,5 +128,5 @@ export async function mockNui<T>(event: string, data: unknown): Promise<T> {
 
 /** Simula que el cliente abre el editor al cargar la página. */
 export function bootMock() {
-  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1 } }, '*')
+  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE } }, '*')
 }

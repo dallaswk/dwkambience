@@ -38,6 +38,8 @@ dwkambience/
 - Pocos bordes visibles, separación por superficies; el verde solo para selección, acción principal y progreso.
 - Iconos SVG monocromos, sin emojis. Un elemento visual dominante por pantalla.
 - Define los tokens como variables CSS en `web/src/styles/tokens.css` y no uses colores sueltos.
+- Idioma configurable con `Config.Locale` (`es` por defecto, `en`). Ningún texto de UI va en el código: todo sale de `web/src/i18n.ts` con `t('clave')`, y cada clave existe en los dos idiomas.
+- Los datos de la escena viven en un `shallowRef`: al editar, sustituye el objeto que cambia (entidad, key, settings) en vez de mutarlo en sitio, o los `computed` no se enteran.
 
 ## Comandos
 

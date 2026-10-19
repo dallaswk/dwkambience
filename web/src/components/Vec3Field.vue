@@ -26,8 +26,8 @@ function onChange(index: number, e: Event) {
 </template>
 
 <style scoped>
-.vec3 { display: grid; grid-template-columns: 54px repeat(3, 1fr); gap: 4px; align-items: center; }
-.label { font-size: var(--fs-xs); color: var(--text-3); }
+.vec3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; align-items: center; }
+.label { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--text-3); }
 .axis { position: relative; }
 .axis span {
   position: absolute;
@@ -39,5 +39,5 @@ function onChange(index: number, e: Event) {
   color: var(--text-3);
   pointer-events: none;
 }
-.axis input { width: 100%; padding: 5px 4px 5px 16px; }
+.axis input { width: 100%; padding: 5px 4px 5px 18px; }
 </style>

@@ -40,7 +40,7 @@ local function openEditor()
     FreezeEntityPosition(PlayerPedId(), true)
     Freecam.start(GetGameplayCamCoord(), GetGameplayCamRot(2))
     setFocus()
-    send('open', { studios = Config.Studios, defaultStudio = Config.DefaultStudio })
+    send('open', { studios = Config.Studios, defaultStudio = Config.DefaultStudio, locale = Config.Locale })
     CreateThread(editorLoop)
 end
 

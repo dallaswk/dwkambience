@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { VEHICLE_DOORS } from '../catalog'
+import { t } from '../i18n'
 import { KIND_LABEL, baseTransform } from '../scene'
 import { useEditor } from '../stores/editor'
 import type { Vec3 } from '../types'
@@ -65,12 +66,12 @@ function toggleDoor(door: number) {
 <template>
   <aside class="inspector">
     <div v-if="!entity" class="empty">
-      <p class="faint">Select an entity in the viewport or in the outliner to edit it.</p>
+      <p class="faint">{{ t('inspectorEmpty') }}</p>
     </div>
 
     <template v-else>
       <header class="head">
-        <div class="kind faint"><Icon :name="entity.kind" :size="14" /> {{ KIND_LABEL[entity.kind] }} · <span class="mono">{{ entity.id }}</span></div>
+        <div class="kind faint"><Icon :name="entity.kind" :size="14" /> {{ t(KIND_LABEL[entity.kind]) }} · <span class="mono">{{ entity.id }}</span></div>
         <input
           class="title"
           :value="entity.label"
@@ -79,7 +80,7 @@ function toggleDoor(door: number) {
           @change="editor.updateEntity(entity.id, { label: ($event.target as HTMLInputElement).value.trim() || entity.label })"
         />
         <label class="model">
-          <span class="faint">Model</span>
+          <span class="faint">{{ t('model') }}</span>
           <input
             class="mono"
             :value="entity.model"
@@ -92,26 +93,26 @@ function toggleDoor(door: number) {
 
       <div class="scroll body">
         <section>
-          <div class="section-title">Transform</div>
+          <div class="section-title">{{ t('transform') }}</div>
           <template v-if="transform">
-            <Vec3Field label="Position" :value="transform.pos" :step="0.05" :disabled="disabled" @change="setPos" />
-            <Vec3Field label="Rotation" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
+            <Vec3Field :label="t('position')" :value="transform.pos" :step="0.05" :disabled="disabled" @change="setPos" />
+            <Vec3Field :label="t('rotation')" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
           </template>
           <div class="tools">
-            <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'translate')"><Icon name="move" :size="14" /> Move</button>
-            <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'rotate')"><Icon name="rotate" :size="14" /> Rotate</button>
-            <button class="btn" :disabled="disabled" @click="editor.ground(entity.id)"><Icon name="ground" :size="14" /> Ground</button>
-            <button class="btn icon" title="Focus camera (F)" @click="editor.focus(entity.id)"><Icon name="focus" :size="14" /></button>
+            <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'translate')"><Icon name="move" :size="14" /> {{ t('move') }}</button>
+            <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'rotate')"><Icon name="rotate" :size="14" /> {{ t('rotate') }}</button>
+            <button class="btn" :disabled="disabled" @click="editor.ground(entity.id)"><Icon name="ground" :size="14" /> {{ t('ground') }}</button>
+            <button class="btn icon" :title="t('focusCamera')" @click="editor.focus(entity.id)"><Icon name="focus" :size="14" /></button>
           </div>
-          <p v-if="editor.gizmoActive" class="hint">Drag the gizmo. <b>W</b> move · <b>R</b> rotate · <b>Enter</b> confirm · <b>Esc</b> cancel</p>
+          <p v-if="editor.gizmoActive" class="hint">{{ t('gizmoHint') }}</p>
         </section>
 
         <section v-if="entity.kind === 'ped'">
-          <div class="section-title">Animation</div>
-          <input v-model="animDict" class="mono" placeholder="Dictionary" :disabled="disabled" />
-          <input v-model="animClip" class="mono" placeholder="Clip" :disabled="disabled" @keydown.enter="applyAnim" />
-          <button class="btn" :disabled="disabled" @click="applyAnim">Apply animation</button>
-          <div class="section-title sub">Scenario</div>
+          <div class="section-title">{{ t('animation') }}</div>
+          <input v-model="animDict" class="mono" :placeholder="t('animDict')" :disabled="disabled" />
+          <input v-model="animClip" class="mono" :placeholder="t('animClip')" :disabled="disabled" @keydown.enter="applyAnim" />
+          <button class="btn" :disabled="disabled" @click="applyAnim">{{ t('applyAnimation') }}</button>
+          <div class="section-title sub">{{ t('scenario') }}</div>
           <input
             class="mono"
             :value="(props.scenario as string) ?? ''"
@@ -122,24 +123,24 @@ function toggleDoor(door: number) {
         </section>
 
         <section v-if="entity.kind === 'vehicle'">
-          <div class="section-title">Vehicle</div>
-          <label class="switch"><input type="checkbox" :checked="props.engine === true" :disabled="disabled" @change="setProp('engine', ($event.target as HTMLInputElement).checked || undefined)" /> Engine on</label>
-          <label class="switch"><input type="checkbox" :checked="props.headlights === true" :disabled="disabled" @change="setProp('headlights', ($event.target as HTMLInputElement).checked || undefined)" /> Headlights</label>
-          <label class="switch"><input type="checkbox" :checked="props.siren === true" :disabled="disabled" @change="setProp('siren', ($event.target as HTMLInputElement).checked || undefined)" /> Siren</label>
+          <div class="section-title">{{ t('vehicle') }}</div>
+          <label class="switch"><input type="checkbox" :checked="props.engine === true" :disabled="disabled" @change="setProp('engine', ($event.target as HTMLInputElement).checked || undefined)" /> {{ t('engineOn') }}</label>
+          <label class="switch"><input type="checkbox" :checked="props.headlights === true" :disabled="disabled" @change="setProp('headlights', ($event.target as HTMLInputElement).checked || undefined)" /> {{ t('headlights') }}</label>
+          <label class="switch"><input type="checkbox" :checked="props.siren === true" :disabled="disabled" @change="setProp('siren', ($event.target as HTMLInputElement).checked || undefined)" /> {{ t('siren') }}</label>
           <label class="range">
-            <span>Dirt <span class="mono faint">{{ Number(props.dirt ?? 0).toFixed(1) }}</span></span>
+            <span>{{ t('dirt') }} <span class="mono faint">{{ Number(props.dirt ?? 0).toFixed(1) }}</span></span>
             <input type="range" min="0" max="15" step="0.5" :value="props.dirt ?? 0" :disabled="disabled" @change="setProp('dirt', Number(($event.target as HTMLInputElement).value) || undefined)" />
           </label>
-          <div class="section-title sub">Doors open</div>
+          <div class="section-title sub">{{ t('doorsOpen') }}</div>
           <div class="doors">
             <button v-for="(door, i) in VEHICLE_DOORS" :key="door" class="btn" :class="{ active: doors.includes(i) }" :disabled="disabled" @click="toggleDoor(i)">
-              {{ door }}
+              {{ t(door) }}
             </button>
           </div>
         </section>
 
         <section>
-          <button class="btn danger" :disabled="disabled" @click="editor.removeEntity(entity.id)"><Icon name="trash" :size="14" /> Delete entity</button>
+          <button class="btn danger" :disabled="disabled" @click="editor.removeEntity(entity.id)"><Icon name="trash" :size="14" /> {{ t('deleteEntity') }}</button>
         </section>
       </div>
     </template>
@@ -159,7 +160,8 @@ function toggleDoor(door: number) {
 section { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 section + section { border-top: 1px solid var(--line); }
 .sub { margin-top: 6px; }
-.tools { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tools { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; margin-top: 4px; }
+.tools .btn { padding: 0 8px; }
 .hint { margin: 0; font-size: var(--fs-xs); color: var(--accent); line-height: 1.5; }
 .switch { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }
 .range { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }

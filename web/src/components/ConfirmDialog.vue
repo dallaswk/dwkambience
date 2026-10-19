@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../i18n'
 import { useConfirm } from '../stores/confirm'
 
 const confirm = useConfirm()
@@ -10,7 +11,7 @@ const confirm = useConfirm()
       <h2>{{ confirm.request.title }}</h2>
       <p class="muted">{{ confirm.request.body }}</p>
       <div class="actions">
-        <button class="btn ghost" @click="confirm.answer(false)">Cancel</button>
+        <button class="btn ghost" @click="confirm.answer(false)">{{ t('cancel') }}</button>
         <button class="btn" :class="confirm.request.danger ? 'danger solid' : 'primary'" @click="confirm.answer(true)">
           {{ confirm.request.confirm }}
         </button>

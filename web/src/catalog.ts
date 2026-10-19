@@ -1,3 +1,4 @@
+import type { MessageKey } from './i18n'
 import type { EntityKind } from './types'
 
 // Selección inicial para las paletas; cualquier otro modelo se puede escribir a mano.
@@ -48,4 +49,4 @@ export const WEATHERS = [
   'SMOG', 'FOGGY', 'XMAS', 'SNOW', 'SNOWLIGHT', 'BLIZZARD', 'HALLOWEEN', 'NEUTRAL',
 ]
 
-export const VEHICLE_DOORS = ['Front L', 'Front R', 'Rear L', 'Rear R', 'Hood', 'Trunk']
+export const VEHICLE_DOORS: MessageKey[] = ['doorFL', 'doorFR', 'doorRL', 'doorRR', 'doorHood', 'doorTrunk']

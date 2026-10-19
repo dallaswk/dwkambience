@@ -1,3 +1,8 @@
+local NO_PERMISSION = {
+    es = 'No tienes permiso para usar el editor de escenas',
+    en = 'You do not have permission to use the scene editor',
+}
+
 RegisterCommand(Config.Command, function(src)
     if src == 0 then
         print('[dwkambience] el editor solo se puede abrir in-game')
@@ -5,7 +10,7 @@ RegisterCommand(Config.Command, function(src)
     end
 
     if not Permissions.canEdit(src) then
-        TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = 'No tienes permiso para usar el editor de escenas' })
+        TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = NO_PERMISSION[Config.Locale] or NO_PERMISSION.en })
         return
     end
 
