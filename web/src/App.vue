@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import HelpDialog from './components/HelpDialog.vue'
 import Inspector from './components/Inspector.vue'
 import Outliner from './components/Outliner.vue'
 import SceneManager from './components/SceneManager.vue'
@@ -51,7 +52,7 @@ function onFocusOut(e: FocusEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (!editor.visible || confirm.request) return
+  if (!editor.visible || confirm.request || editor.dialog) return
   const key = e.key.toLowerCase()
   const mod = e.ctrlKey || e.metaKey
   if (mod && key === 's') {
@@ -59,7 +60,12 @@ function onKey(e: KeyboardEvent) {
     editor.save()
     return
   }
-  if (isTyping(e.target) || !editor.scene) return
+  if (isTyping(e.target) || editor.previewing) return
+  if (key === '?') {
+    editor.dialog = 'shortcuts'
+    return
+  }
+  if (!editor.scene) return
 
   if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) {
     e.preventDefault()
@@ -70,11 +76,15 @@ function onKey(e: KeyboardEvent) {
   } else if (key === ' ') {
     e.preventDefault()
     timeline.toggle()
+  } else if (mod && key === 'd') {
+    e.preventDefault()
+    if (editor.selectedId) editor.duplicateEntity(editor.selectedId)
   } else if (key === 'k') {
     editor.recordKey()
+  } else if (key === 'p') {
+    editor.preview()
   } else if (key === 'delete' || key === 'backspace') {
-    if (editor.selectedItem) editor.deleteSelected()
-    else if (editor.selectedId) editor.removeEntity(editor.selectedId)
+    editor.deleteSelection()
   } else if (key === 'f' && editor.selectedId) {
     editor.focus(editor.selectedId)
   } else if (key === 'escape') {
@@ -90,6 +100,7 @@ onMounted(() => {
     if (action === 'open') editor.show(data as { studios: unknown; locale?: unknown })
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
+    else if (action === 'preview') editor.onPreview(data as { active: boolean })
     else if (action === 'playback') handlePlayback(data as Parameters<typeof handlePlayback>[0])
   })
   document.addEventListener('focusin', onFocusIn)
@@ -107,7 +118,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="editor.visible" class="editor" :class="{ 'has-scene': !!editor.scene, 'dev-bg': !inGame }">
+  <!-- Durante la previsualización la UI se oculta (sin desmontarla) para ver la cutscene a pantalla completa -->
+  <div v-if="editor.visible" v-show="!editor.previewing" class="editor" :class="{ 'has-scene': !!editor.scene, 'dev-bg': !inGame }">
     <TopBar @close-scene="closeScene" @exit="exit" />
 
     <aside class="left">
@@ -131,6 +143,7 @@ onBeforeUnmount(() => {
 
   <Toasts />
   <ConfirmDialog />
+  <HelpDialog />
 </template>
 
 <style scoped>

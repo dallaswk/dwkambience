@@ -8,6 +8,8 @@ local prepared     -- escena preparada para Evaluate
 local currentT = 0
 local cameraView = false
 local savedCam     -- pose de la free cam antes de entrar en Camera view
+local worldPreview = false -- clima y hora de la escena aplicados mientras se edita
+local previewing = false   -- previsualizando la cutscene (el editor queda en pausa)
 
 local function send(action, data)
     SendNUIMessage({ action = action, data = data })
@@ -20,11 +22,21 @@ local function setFocus()
 end
 
 local function editorLoop()
-    local last = GetGameTimer()
+    local last, lastWorld = GetGameTimer(), 0
     while isOpen do
         local now = GetGameTimer()
         local dt = (now - last) / 1000
         last = now
+
+        if previewing then
+            Wait(100)
+            goto continue
+        end
+
+        if worldPreview and prepared and now - lastWorld > 250 then
+            World.apply(prepared.data.settings, false)
+            lastWorld = now
+        end
 
         if not Gizmo.isRunning() then
             DisableAllControlActions(0)
@@ -33,6 +45,7 @@ local function editorLoop()
         HideHudAndRadarThisFrame()
         Select.draw()
         Wait(0)
+        ::continue::
     end
 end
 
@@ -87,6 +100,8 @@ local function closeScene()
     Entities:clear()
     Select.set(nil)
     setCameraView(false)
+    worldPreview = false
+    World.restore()
 end
 
 -- Limpieza local sin hablar con el servidor (válida también en onResourceStop)
@@ -96,6 +111,8 @@ local function teardown()
     currentScene = nil
     prepared = nil
     cameraView, savedCam = false, nil
+    worldPreview, previewing = false, false
+    World.restore()
     Entities:clear()
     Select.set(nil)
     Freecam.stop()
@@ -296,6 +313,57 @@ nui('animInfo', function(data)
     RemoveAnimDict(data.dict)
     if not seconds or seconds <= 0 then return { ok = false, error = 'invalid_anim' } end
     return { ok = true, length = math.floor(seconds * 1000) }
+end)
+
+-- Menús Mundo y Ajustes --------------------------------------------------------
+
+nui('camSpeed', function(data)
+    Freecam.setSpeedMultiplier(tonumber(data.multiplier) or 1.0)
+end)
+
+nui('cameraToPlayer', function()
+    local coords = GetEntityCoords(PlayerPedId())
+    Freecam.lookAt(coords, 6.0)
+end)
+
+nui('previewWorld', function(data)
+    worldPreview = data.active == true and prepared ~= nil
+    if worldPreview then
+        World.apply(prepared.data.settings, true)
+    else
+        World.restore()
+    end
+end)
+
+-- Previsualizar cutscene: reproduce localmente la escena tal como está en el editor (sin guardar)
+nui('preview', function(data)
+    if previewing or Gizmo.isRunning() or type(data.data) ~= 'table' or not currentScene then return { ok = false } end
+    previewing = true
+
+    local hidden = {}
+    for _, item in Entities:each() do
+        if item.handle and DoesEntityExist(item.handle) then
+            SetEntityVisible(item.handle, false, false)
+            hidden[#hidden + 1] = item.handle
+        end
+    end
+    SetNuiFocus(false, false)
+    send('preview', { active = true })
+
+    -- En otro hilo: la reproducción bloquea hasta terminar y el callback NUI tiene que responder ya
+    local sceneData, sceneId = data.data, currentScene
+    CreateThread(function() Player.preview(sceneData, sceneId, function()
+        for _, handle in ipairs(hidden) do
+            if DoesEntityExist(handle) then SetEntityVisible(handle, true, false) end
+        end
+        previewing = false
+        if not isOpen then return end
+        FreezeEntityPosition(PlayerPedId(), true)
+        Freecam.reactivate()
+        if worldPreview and prepared then World.apply(prepared.data.settings, true) end
+        setFocus()
+        send('preview', { active = false })
+    end) end)
 end)
 
 RegisterNetEvent('dwkambience:openEditor', openEditor)

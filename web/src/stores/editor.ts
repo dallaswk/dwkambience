@@ -4,7 +4,7 @@ import { setLocale, t } from '../i18n'
 import type { MessageKey } from '../i18n'
 import { fetchNui } from '../nui'
 import {
-  CAMERA, EVENTS, MUSIC, addClip, addEventKey, findTrack, keyIndexAt, nextEntityId, normalizeScene,
+  CAMERA, EVENTS, MUSIC, addClip, addEventKey, findTrack, keyIndexAt, nextEntityId, normalizeScene, sceneDuration,
   removeEntity as removeFromScene, removeItem, transformTrack, updateClip, updateKey, upsertPoseKey,
 } from '../scene'
 import type {
@@ -78,6 +78,10 @@ export const useEditor = defineStore('editor', () => {
   const pose = ref<Pose | null>(null) // pose de la entidad seleccionada en el instante actual
   const gizmoActive = ref(false)
   const showLabels = ref(true)
+  const previewing = ref(false)
+  const worldPreview = ref(false)
+  const camSpeed = ref(1)
+  const dialog = ref<'shortcuts' | 'about' | null>(null)
 
   const studio = computed<Studio | null>(() => (meta.value ? studios.value[meta.value.studio] ?? null : null))
   const entityCount = computed(() => scene.value?.entities.length ?? 0)
@@ -176,6 +180,8 @@ export const useEditor = defineStore('editor', () => {
     dirty.value = false
     savedAt.value = null
     gizmoActive.value = false
+    worldPreview.value = false
+    previewing.value = false
   }
 
   async function exit() {
@@ -365,6 +371,62 @@ export const useEditor = defineStore('editor', () => {
     fetchNui('focus', { id })
   }
 
+  /** Copia una entidad y sus pistas con id nuevo, desplazada 1 m en X para que no se solapen. */
+  function duplicateEntity(id: string) {
+    const source = scene.value?.entities.find((e) => e.id === id)
+    if (!scene.value || !source || !canEdit.value) return
+    if (studio.value && entityCount.value >= studio.value.maxEntities) return fail({ ok: false, error: 'too_many_entities' })
+
+    const { id: newId } = nextEntityId(scene.value, source.kind)
+    const copy: SceneEntity = { ...source, id: newId, label: `${source.label}${t('copySuffix')}`.slice(0, 64) }
+    edit((s) => {
+      s.entities = [...s.entities, copy]
+      const tracks = s.tracks
+        .filter((tr) => tr.target === id)
+        .map((tr) => ({
+          ...tr,
+          id: tr.id.replace(id, newId),
+          target: newId,
+          keys: tr.keys?.map((k) => ('pos' in k ? { ...k, pos: [k.pos[0] + 1, k.pos[1], k.pos[2]] as Vec3 } : k)),
+          clips: tr.clips?.map((c) => ({ ...c })),
+        }))
+      s.tracks = [...s.tracks, ...tracks]
+    })
+    select(newId)
+  }
+
+  function deleteSelection() {
+    if (selectedItem.value) deleteSelected()
+    else if (selectedId.value) removeEntity(selectedId.value)
+  }
+
+  function toggleWorldPreview() {
+    worldPreview.value = !worldPreview.value
+    fetchNui('previewWorld', { active: worldPreview.value })
+  }
+
+  function cameraToPlayer() {
+    fetchNui('cameraToPlayer')
+  }
+
+  function setCamSpeed(multiplier: number) {
+    camSpeed.value = multiplier
+    fetchNui('camSpeed', { multiplier })
+  }
+
+  /** Reproduce la cutscene tal como está (sin guardar) con letterbox, fundidos y música. */
+  async function preview() {
+    if (!scene.value || meta.value?.type !== 'cutscene' || previewing.value || sceneDuration(scene.value) <= 0) return
+    useTimeline().pause()
+    syncNow()
+    const result = await fetchNui<Result>('preview', { data: scene.value })
+    if (result && result.ok === false) fail(result)
+  }
+
+  function onPreview(data: { active: boolean }) {
+    previewing.value = data.active
+  }
+
   function toggleLabels() {
     showLabels.value = !showLabels.value
     fetchNui('labels', { enabled: showLabels.value })
@@ -468,6 +530,8 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    previewing, worldPreview, camSpeed, dialog, duplicateEntity, deleteSelection, toggleWorldPreview, cameraToPlayer,
+    setCamSpeed, preview, onPreview,
     toggleLabels, undo, redo, checkpoint, schedulePoseRefresh, recordKey, addEvent, addMusic, addAnimClip,
     updateSelected, deleteSelected, setDuration,
   }

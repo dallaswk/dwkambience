@@ -24,6 +24,7 @@ shared_scripts {
 
 client_scripts {
     'client/util.lua',
+    'client/world.lua',
     'client/freecam.lua',
     'client/pool.lua',
     'client/select.lua',

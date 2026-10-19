@@ -105,6 +105,12 @@ const handlers: Record<string, (data: any) => unknown> = {
 
   pick: () => ({ ok: true, id: null }),
 
+  preview: () => {
+    window.postMessage({ action: 'preview', data: { active: true } }, '*')
+    setTimeout(() => window.postMessage({ action: 'preview', data: { active: false } }, '*'), 1500)
+    return { ok: true }
+  },
+
   applyEntity: ({ entity, pos, rot }: { entity: { id: string }; pos: Vec3; rot: Vec3 }) => {
     if (pos && rot) poses.set(entity.id, { pos, rot })
     return { ok: true }

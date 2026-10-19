@@ -162,6 +162,57 @@ const en = {
   addAnimToTimeline: 'Add to track at {time}',
   poseNotKeyed: 'Pose not keyed: press Key or enable Auto key',
   errInvalidAnim: 'Animation not found',
+  menuEdit: 'Edit',
+  menuTools: 'Tools',
+  menuWorld: 'World',
+  menuSettings: 'Settings',
+  menuHelp: 'Help',
+  undo: 'Undo',
+  redo: 'Redo',
+  duplicateEntity: 'Duplicate entity',
+  deleteSelection: 'Delete selection',
+  deselect: 'Deselect',
+  zoomTimelineIn: 'Zoom timeline in',
+  zoomTimelineOut: 'Zoom timeline out',
+  recordKey: 'Record key',
+  previewWorld: 'Preview scene weather and time',
+  cameraToPlayer: 'Move camera to my player',
+  previewCutscene: 'Preview cutscene',
+  preview: 'Preview',
+  language: 'Language',
+  cameraSpeed: 'Camera speed',
+  speedSlow: 'Slow',
+  speedNormal: 'Normal',
+  speedFast: 'Fast',
+  shortcuts: 'Keyboard shortcuts…',
+  shortcutsTitle: 'Keyboard shortcuts',
+  about: 'About dwkambience',
+  aboutBody: 'In-game cutscene and ambience editor for FiveM. Version {version}.',
+  close: 'Close',
+  copySuffix: ' (copy)',
+  scFly: 'Fly the camera',
+  scUpDown: 'Camera down / up',
+  scSpeed: 'Camera faster / slower',
+  scSelect: 'Select an entity in the viewport',
+  scFocus: 'Frame the selection',
+  scGizmo: 'Gizmo: move, rotate, confirm, cancel',
+  scPlay: 'Play / pause the timeline',
+  scKey: 'Record a key at the current time',
+  scPreview: 'Preview the cutscene',
+  scUndoRedo: 'Undo / redo',
+  scDuplicate: 'Duplicate the selected entity',
+  scDelete: 'Delete the selected key or entity',
+  scSave: 'Save',
+  scZoom: 'Zoom the timeline',
+  scRegion: 'Set a loop region',
+  scSkip: 'Skip a cutscene during playback',
+  kbRmbWasd: 'Right mouse + WASD',
+  kbClick: 'Click',
+  kbSpace: 'Space',
+  kbDelete: 'Del',
+  kbCtrlWheel: 'Ctrl + wheel',
+  kbShiftRuler: 'Shift + drag ruler',
+  kbBackspace: 'Backspace',
 
   cancel: 'Cancel',
   discardTitle: 'Discard unsaved changes?',
@@ -352,6 +403,57 @@ const es: Record<MessageKey, string> = {
   addAnimToTimeline: 'Añadir a la pista en {time}',
   poseNotKeyed: 'Pose sin key: pulsa Key o activa Auto key',
   errInvalidAnim: 'Animación no encontrada',
+  menuEdit: 'Editar',
+  menuTools: 'Herramientas',
+  menuWorld: 'Mundo',
+  menuSettings: 'Ajustes',
+  menuHelp: 'Ayuda',
+  undo: 'Deshacer',
+  redo: 'Rehacer',
+  duplicateEntity: 'Duplicar entidad',
+  deleteSelection: 'Borrar selección',
+  deselect: 'Deseleccionar',
+  zoomTimelineIn: 'Acercar timeline',
+  zoomTimelineOut: 'Alejar timeline',
+  recordKey: 'Grabar key',
+  previewWorld: 'Previsualizar clima y hora de la escena',
+  cameraToPlayer: 'Llevar la cámara a mi jugador',
+  previewCutscene: 'Previsualizar cutscene',
+  preview: 'Previsualizar',
+  language: 'Idioma',
+  cameraSpeed: 'Velocidad de la cámara',
+  speedSlow: 'Lenta',
+  speedNormal: 'Normal',
+  speedFast: 'Rápida',
+  shortcuts: 'Atajos de teclado…',
+  shortcutsTitle: 'Atajos de teclado',
+  about: 'Acerca de dwkambience',
+  aboutBody: 'Editor in-game de cutscenes y ambiences para FiveM. Versión {version}.',
+  close: 'Cerrar',
+  copySuffix: ' (copia)',
+  scFly: 'Volar con la cámara',
+  scUpDown: 'Bajar / subir la cámara',
+  scSpeed: 'Cámara más rápida / más lenta',
+  scSelect: 'Seleccionar una entidad en el viewport',
+  scFocus: 'Encuadrar la selección',
+  scGizmo: 'Gizmo: mover, rotar, confirmar, cancelar',
+  scPlay: 'Reproducir / pausar el timeline',
+  scKey: 'Grabar una key en el instante actual',
+  scPreview: 'Previsualizar la cutscene',
+  scUndoRedo: 'Deshacer / rehacer',
+  scDuplicate: 'Duplicar la entidad seleccionada',
+  scDelete: 'Borrar la key o entidad seleccionada',
+  scSave: 'Guardar',
+  scZoom: 'Zoom del timeline',
+  scRegion: 'Marcar una región de bucle',
+  scSkip: 'Saltar una cutscene durante la reproducción',
+  kbRmbWasd: 'Clic derecho + WASD',
+  kbClick: 'Clic',
+  kbSpace: 'Espacio',
+  kbDelete: 'Supr',
+  kbCtrlWheel: 'Ctrl + rueda',
+  kbShiftRuler: 'Shift + arrastrar la regla',
+  kbBackspace: 'Retroceso',
 
   cancel: 'Cancelar',
   discardTitle: '¿Descartar los cambios?',
@@ -381,10 +483,35 @@ const es: Record<MessageKey, string> = {
 
 const LOCALES: Record<string, Record<MessageKey, string>> = { en, es }
 
+export const LOCALES_AVAILABLE = ['es', 'en'] as const
+
+const PREF_KEY = 'dwkambience:locale'
+
+function storedLocale() {
+  try {
+    return localStorage.getItem(PREF_KEY)
+  } catch {
+    return null
+  }
+}
+
 export const locale = ref<string>('es')
 
+/** Idioma por defecto (Config.Locale). Una elección del usuario en Ajustes tiene prioridad. */
 export function setLocale(value: unknown) {
-  if (typeof value === 'string' && value in LOCALES) locale.value = value
+  const preferred = storedLocale() ?? value
+  if (typeof preferred === 'string' && preferred in LOCALES) locale.value = preferred
+}
+
+/** Elección del usuario desde el menú Ajustes; se recuerda en este navegador. */
+export function chooseLocale(value: string) {
+  if (!(value in LOCALES)) return
+  locale.value = value
+  try {
+    localStorage.setItem(PREF_KEY, value)
+  } catch {
+    // sin almacenamiento: vale para esta sesión
+  }
 }
 
 /** Texto traducido con {parámetros}. Lee `locale` para que las plantillas se actualicen al cambiarlo. */

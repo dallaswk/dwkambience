@@ -22,29 +22,6 @@ local function fade(out)
     end
 end
 
-local function weatherSync(enabled)
-    if GetResourceState('qb-weathersync') ~= 'started' then return end
-    TriggerEvent(enabled and 'qb-weathersync:client:EnableSync' or 'qb-weathersync:client:DisableSync')
-end
-
--- Clima y hora de la escena. Se reaplican durante la reproducción porque qb-weathersync, aun en pausa,
--- fuerza su propio clima cada pocos segundos.
-local function applyWorld(settings, force)
-    local h, m = settings.time:match('^(%d+):(%d+)$')
-    NetworkOverrideClockTime(tonumber(h), tonumber(m), 0)
-    if force or GetPrevWeatherTypeHashName() ~= GetHashKey(settings.weather) then
-        SetWeatherTypeNowPersist(settings.weather)
-        SetOverrideWeather(settings.weather)
-    end
-end
-
-local function restoreWorld()
-    ClearOverrideWeather()
-    ClearWeatherTypePersist()
-    NetworkClearClockTimeOverride()
-    weatherSync(true)
-end
-
 local function preloadModels(data, deadline)
     local hashes = {}
     for _, entity in ipairs(data.entities or {}) do
@@ -108,7 +85,7 @@ local function stop(skipped, immediate)
     RenderScriptCams(false, false, 0, true, true)
     if a.cam then DestroyCam(a.cam, false) end
     ClearFocus()
-    restoreWorld()
+    World.restore()
     DisplayRadar(true)
 
     local ped = PlayerPedId()
@@ -118,8 +95,11 @@ local function stop(skipped, immediate)
     SendNUIMessage({ action = 'playback', data = { state = 'stop' } })
     active = nil
 
-    if not immediate then
-        fade(false)
+    if not immediate then fade(false) end
+
+    if a.onEnd then
+        a.onEnd(skipped == true)
+    elseif not immediate then
         TriggerServerEvent('dwkambience:playbackEnded', a.session, skipped == true)
         TriggerEvent('dwkambience:finished', a.sceneId, skipped == true)
     end
@@ -129,8 +109,9 @@ local function musicClips(prepared)
     return prepared.audio.music or {}
 end
 
-local function run(payload)
-    if Editor.isOpen() then
+-- onEnd: solo para la previsualización del editor (no avisa al servidor ni emite finished)
+local function run(payload, onEnd)
+    if not onEnd and Editor.isOpen() then
         TriggerServerEvent('dwkambience:playbackEnded', payload.session, false)
         return
     end
@@ -146,6 +127,7 @@ local function run(payload)
         skippable = payload.skippable,
         prepared = prepared,
         pool = EntityPool.new(),
+        onEnd = onEnd,
     }
     active = a
 
@@ -162,8 +144,7 @@ local function run(payload)
     local ped = PlayerPedId()
     FreezeEntityPosition(ped, true)
     SetEntityInvincible(ped, true)
-    weatherSync(false)
-    applyWorld(settings, true)
+    World.apply(settings, true)
 
     SendNUIMessage({ action = 'playback', data = { state = 'start', clips = musicClips(prepared), t = netNow() - a.startAt } })
 
@@ -205,7 +186,7 @@ local function run(payload)
         lastT = t
 
         if now - lastWeather > 250 then
-            applyWorld(settings, false)
+            World.apply(settings, false)
             lastWeather = now
         end
         if now - lastSync > 1000 then
@@ -228,6 +209,21 @@ end
 RegisterNetEvent('dwkambience:play', function(payload)
     run(payload)
 end)
+
+Player = {
+    --- Reproduce localmente datos de escena sin servidor (Previsualizar cutscene del editor).
+    preview = function(data, sceneId, onEnd)
+        run({
+            session = 0,
+            sceneId = sceneId,
+            data = data,
+            startAt = netNow() + 1000,
+            duration = Scene.stats(data).durationMs,
+            skippable = true,
+        }, onEnd)
+    end,
+    isActive = function() return active ~= nil end,
+}
 
 RegisterNetEvent('dwkambience:stop', function(session)
     if active and active.session == session then stop(false) end

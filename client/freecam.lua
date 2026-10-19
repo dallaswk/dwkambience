@@ -4,6 +4,7 @@ Freecam = {}
 local cam
 local pos, rot
 local fov = Config.Freecam.fov
+local speedMultiplier = 1.0
 
 local CONTROL = {
     lookX = 1, lookY = 2,
@@ -35,6 +36,17 @@ function Freecam.get()
     return pos, rot, fov
 end
 
+function Freecam.setSpeedMultiplier(value)
+    speedMultiplier = math.max(0.1, math.min(10.0, value + 0.0))
+end
+
+--- Vuelve a renderizar la free cam (otra cámara de script la sustituyó, p. ej. una previsualización)
+function Freecam.reactivate()
+    if not cam then return end
+    SetCamActive(cam, true)
+    RenderScriptCams(true, false, 0, true, true)
+end
+
 function Freecam.setFov(value)
     fov = math.max(1.0, math.min(130.0, value + 0.0))
 end
@@ -59,7 +71,7 @@ function Freecam.update(dt, active)
         local lookY = GetDisabledControlNormal(0, CONTROL.lookY)
         rot = vector3(math.max(-89.0, math.min(89.0, rot.x - lookY * cfg.sensitivity)), 0.0, rot.z - lookX * cfg.sensitivity)
 
-        local speed = cfg.speed
+        local speed = cfg.speed * speedMultiplier
         if IsDisabledControlPressed(0, CONTROL.fast) then speed = speed * cfg.fastMultiplier end
         if IsDisabledControlPressed(0, CONTROL.slow) then speed = speed * cfg.slowMultiplier end
 

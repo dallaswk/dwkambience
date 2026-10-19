@@ -1,16 +1,133 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { t } from '../i18n'
+import { LOCALES_AVAILABLE, chooseLocale, locale, t } from '../i18n'
 import type { MessageKey } from '../i18n'
 import { useEditor } from '../stores/editor'
+import { useHistory } from '../stores/history'
+import { useTimeline } from '../stores/timeline'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
 import PaletteMenu from './PaletteMenu.vue'
 
 const editor = useEditor()
+const timeline = useTimeline()
+const history = useHistory()
 const emit = defineEmits<{ closeScene: []; exit: [] }>()
 
-const menu = ref<string | null>(null)
+const open = ref<string | null>(null)
+
+type MenuItem =
+  | { kind: 'item'; label: string; action: () => void; shortcut?: string; disabled?: boolean; checked?: boolean }
+  | { kind: 'header'; label: string }
+  | { kind: 'sep' }
+
+interface Menu {
+  id: string
+  label: MessageKey
+  items: MenuItem[]
+}
+
+const item = (label: string, action: () => void, extra: Partial<Extract<MenuItem, { kind: 'item' }>> = {}): MenuItem => ({ kind: 'item', label, action, ...extra })
+const sep: MenuItem = { kind: 'sep' }
+const header = (label: string): MenuItem => ({ kind: 'header', label })
+
+const LANGUAGE_NAMES: Record<string, string> = { es: 'Español', en: 'English' }
+const SPEEDS: { value: number; label: MessageKey }[] = [
+  { value: 0.35, label: 'speedSlow' },
+  { value: 1, label: 'speedNormal' },
+  { value: 3, label: 'speedFast' },
+]
+
+const menus = computed<Menu[]>(() => {
+  const hasScene = !!editor.scene
+  const canEdit = editor.canEdit
+  const id = editor.selectedId
+  const isCutscene = editor.meta?.type === 'cutscene'
+  const hasSelection = !!id || !!editor.selectedItem
+
+  return [
+    {
+      id: 'file',
+      label: 'file',
+      items: [
+        item(t('newOpenScene'), () => emit('closeScene'), { disabled: !hasScene }),
+        item(t('save'), editor.save, { shortcut: 'Ctrl+S', disabled: !canEdit || !editor.dirty }),
+        item(t('closeScene'), () => emit('closeScene'), { disabled: !hasScene }),
+        sep,
+        item(t('exitEditor'), () => emit('exit')),
+      ],
+    },
+    {
+      id: 'edit',
+      label: 'menuEdit',
+      items: [
+        item(t('undo'), editor.undo, { shortcut: 'Ctrl+Z', disabled: !canEdit || !history.canUndo }),
+        item(t('redo'), editor.redo, { shortcut: 'Ctrl+Y', disabled: !canEdit || !history.canRedo }),
+        sep,
+        item(t('duplicateEntity'), () => id && editor.duplicateEntity(id), { shortcut: 'Ctrl+D', disabled: !canEdit || !id }),
+        item(t('deleteSelection'), editor.deleteSelection, { shortcut: t('kbDelete'), disabled: !canEdit || !hasSelection }),
+        item(t('deselect'), () => (editor.selectedItem ? timeline.select(null) : editor.select(null)), { shortcut: 'Esc', disabled: !hasSelection }),
+      ],
+    },
+    {
+      id: 'view',
+      label: 'view',
+      items: [
+        item(t('entityLabels'), editor.toggleLabels, { checked: editor.showLabels }),
+        ...(isCutscene ? [item(t('tlCameraView'), () => timeline.setCameraView(!timeline.cameraView), { checked: timeline.cameraView })] : []),
+        sep,
+        item(t('zoomTimelineIn'), () => (timeline.pxPerSec = Math.min(800, timeline.pxPerSec * 1.4)), { shortcut: t('kbCtrlWheel'), disabled: !hasScene }),
+        item(t('zoomTimelineOut'), () => (timeline.pxPerSec = Math.max(10, timeline.pxPerSec / 1.4)), { disabled: !hasScene }),
+      ],
+    },
+    {
+      id: 'tools',
+      label: 'menuTools',
+      items: [
+        item(t('move'), () => id && editor.startGizmo(id, 'translate'), { disabled: !canEdit || !id }),
+        item(t('rotate'), () => id && editor.startGizmo(id, 'rotate'), { disabled: !canEdit || !id }),
+        item(t('ground'), () => id && editor.ground(id), { disabled: !canEdit || !id }),
+        item(t('focusCamera'), () => id && editor.focus(id), { shortcut: 'F', disabled: !id }),
+        sep,
+        item(t('recordKey'), editor.recordKey, { shortcut: 'K', disabled: !canEdit }),
+        item(t('evFadeOut'), () => editor.addEvent('fade'), { disabled: !canEdit }),
+        item(t('evSubtitle'), () => editor.addEvent('subtitle'), { disabled: !canEdit }),
+        item(t('evTrigger'), () => editor.addEvent('trigger'), { disabled: !canEdit }),
+      ],
+    },
+    {
+      id: 'world',
+      label: 'menuWorld',
+      items: [
+        item(t('previewWorld'), editor.toggleWorldPreview, { checked: editor.worldPreview, disabled: !hasScene }),
+        item(t('cameraToPlayer'), editor.cameraToPlayer),
+        ...(isCutscene ? [sep, item(t('previewCutscene'), editor.preview, { shortcut: 'P', disabled: !hasScene })] : []),
+      ],
+    },
+    {
+      id: 'settings',
+      label: 'menuSettings',
+      items: [
+        header(t('language')),
+        ...LOCALES_AVAILABLE.map((l) => item(LANGUAGE_NAMES[l], () => chooseLocale(l), { checked: locale.value === l })),
+        sep,
+        header(t('cameraSpeed')),
+        ...SPEEDS.map((s) => item(t(s.label), () => editor.setCamSpeed(s.value), { checked: editor.camSpeed === s.value })),
+        sep,
+        item(t('tlAutoKey'), () => (timeline.autoKey = !timeline.autoKey), { checked: timeline.autoKey }),
+        item(t('tlSnap'), () => (timeline.snap = !timeline.snap), { checked: timeline.snap }),
+      ],
+    },
+    {
+      id: 'help',
+      label: 'menuHelp',
+      items: [
+        item(t('shortcuts'), () => (editor.dialog = 'shortcuts'), { shortcut: '?' }),
+        item(t('about'), () => (editor.dialog = 'about')),
+      ],
+    },
+  ]
+})
 
 const PALETTES: { kind: EntityKind; label: MessageKey }[] = [
   { kind: 'ped', label: 'palettePed' },
@@ -30,16 +147,22 @@ const savedLabel = computed(() => {
 const nearLimit = computed(() => !!editor.studio && editor.entityCount >= editor.studio.maxEntities * 0.9)
 
 function toggle(name: string) {
-  menu.value = menu.value === name ? null : name
+  open.value = open.value === name ? null : name
 }
 
-function run(action: () => void) {
-  menu.value = null
-  action()
+// Con un menú abierto, pasar el ratón por otro lo abre (como en una barra de menús de escritorio)
+function hover(name: string) {
+  if (open.value && open.value !== name && menus.value.some((m) => m.id === open.value)) open.value = name
+}
+
+function run(entry: Extract<MenuItem, { kind: 'item' }>) {
+  if (entry.disabled) return
+  open.value = null
+  entry.action()
 }
 
 function onDocClick(e: MouseEvent) {
-  if (!(e.target as HTMLElement).closest('.menu-root')) menu.value = null
+  if (!(e.target as HTMLElement).closest('.menu-root')) open.value = null
 }
 onMounted(() => document.addEventListener('mousedown', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
@@ -50,35 +173,29 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
     <div class="left">
       <span class="brand">dwkambience</span>
 
-      <div class="menu-root">
-        <button class="btn ghost" :class="{ active: menu === 'file' }" @click="toggle('file')">{{ t('file') }}</button>
-        <div v-if="menu === 'file'" class="dropdown">
-          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">{{ t('newOpenScene') }}</button>
-          <button :disabled="!editor.canEdit || !editor.dirty" @click="run(editor.save)">
-            {{ t('save') }} <span class="faint">Ctrl+S</span>
-          </button>
-          <button :disabled="!editor.scene" @click="run(() => emit('closeScene'))">{{ t('closeScene') }}</button>
-          <div class="sep" />
-          <button @click="run(() => emit('exit'))">{{ t('exitEditor') }}</button>
+      <nav class="menus">
+        <div v-for="menu in menus" :key="menu.id" class="menu-root" @mouseenter="hover(menu.id)">
+          <button class="btn ghost menu-btn" :class="{ active: open === menu.id }" @click="toggle(menu.id)">{{ t(menu.label) }}</button>
+          <div v-if="open === menu.id" class="dropdown" role="menu">
+            <template v-for="(entry, i) in menu.items" :key="i">
+              <div v-if="entry.kind === 'sep'" class="sep" />
+              <div v-else-if="entry.kind === 'header'" class="menu-header">{{ entry.label }}</div>
+              <button v-else role="menuitem" :disabled="entry.disabled" @click="run(entry)">
+                <span class="check-slot"><span v-if="entry.checked !== undefined" class="check" :class="{ on: entry.checked }" /></span>
+                <span class="entry-label">{{ entry.label }}</span>
+                <span v-if="entry.shortcut" class="faint shortcut">{{ entry.shortcut }}</span>
+              </button>
+            </template>
+          </div>
         </div>
-      </div>
-
-      <div class="menu-root">
-        <button class="btn ghost" :class="{ active: menu === 'view' }" @click="toggle('view')">{{ t('view') }}</button>
-        <div v-if="menu === 'view'" class="dropdown">
-          <button @click="run(editor.toggleLabels)">
-            <span>{{ t('entityLabels') }}</span>
-            <span class="check" :class="{ on: editor.showLabels }" />
-          </button>
-        </div>
-      </div>
+      </nav>
 
       <div class="divider" />
 
-      <div v-for="p in PALETTES" :key="p.kind" class="menu-root">
+      <div v-for="p in PALETTES" :key="p.kind" class="menu-root palette-root">
         <button
           class="btn ghost"
-          :class="{ active: menu === p.kind }"
+          :class="{ active: open === p.kind }"
           :disabled="!editor.canEdit"
           @click="toggle(p.kind)"
         >
@@ -87,9 +204,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
         </button>
         <PaletteMenu
           :kind="p.kind"
-          :open="menu === p.kind"
+          :open="open === p.kind"
           @spawn="(model) => editor.spawn(p.kind, model)"
-          @close="menu = null"
+          @close="open = null"
         />
       </div>
     </div>
@@ -106,6 +223,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
       <span v-if="editor.studio" class="counter mono" :class="{ warn: nearLimit }">
         {{ editor.studio.label }} // {{ editor.entityCount }}/{{ editor.studio.maxEntities }}
       </span>
+      <button v-if="editor.meta?.type === 'cutscene'" class="btn ghost" :disabled="!editor.scene" @click="editor.preview()">
+        <Icon name="play" :size="14" /> {{ t('preview') }}
+      </button>
       <button v-if="editor.scene" class="btn primary" :disabled="!editor.canEdit || !editor.dirty || editor.saving" @click="editor.save">
         <Icon name="save" :size="14" /> {{ t('save') }}
       </button>
@@ -126,12 +246,13 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
   padding: 0 8px 0 14px;
   background: var(--surface-1);
 }
-.left, .right, .center { display: flex; align-items: center; gap: 4px; }
+.left, .right, .center, .menus { display: flex; align-items: center; gap: 2px; }
 .center { gap: 6px; min-width: 0; font-size: var(--fs-sm); }
 .right { gap: 10px; }
 .brand { font-weight: 700; letter-spacing: 0.02em; margin-right: 10px; }
+.menu-btn { padding: 0 9px; }
 .divider { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
-.name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 .saved { color: var(--text-3); margin-left: 6px; }
 .saved.dirty { color: var(--warning); }
 .counter { font-size: var(--fs-xs); color: var(--text-2); }
@@ -142,7 +263,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  min-width: 210px;
+  min-width: 240px;
   padding: 6px;
   background: var(--surface-2);
   border-radius: var(--radius);
@@ -151,10 +272,10 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 }
 .dropdown button {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 7px 10px 7px 6px;
   border: none;
   background: none;
   border-radius: var(--radius-sm);
@@ -164,7 +285,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 }
 .dropdown button:hover:not(:disabled) { background: var(--surface-hover); }
 .dropdown button:disabled { color: var(--text-3); cursor: default; }
-.sep { height: 1px; background: var(--line); margin: 6px 4px; }
-.check { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); }
+.entry-label { flex: 1; white-space: nowrap; }
+.shortcut { font-size: var(--fs-xs); }
+.check-slot { width: 10px; display: flex; justify-content: center; }
+.check { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); }
 .check.on { background: var(--accent); }
+.menu-header { padding: 6px 10px 4px 24px; font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); }
+.sep { height: 1px; background: var(--line); margin: 6px 4px; }
 </style>
