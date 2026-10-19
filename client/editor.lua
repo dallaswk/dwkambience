@@ -28,7 +28,7 @@ local function editorLoop()
         local dt = (now - last) / 1000
         last = now
 
-        if previewing then
+        if previewing or Recorder.isActive() then
             Wait(100)
             goto continue
         end
@@ -366,6 +366,49 @@ end)
 
 nui('setActive', function(data)
     return lib.callback.await('dwkambience:setActive', false, data.id, data.active == true)
+end)
+
+-- Grabación en vivo -------------------------------------------------------------
+
+-- Graba la entidad seleccionada caminando o conduciendo; las keys vuelven a la NUI al terminar
+nui('record', function(data)
+    local item = Entities.items[data.id]
+    if previewing or Recorder.isActive() or not item or not item.handle then return { ok = false, error = 'unavailable' } end
+    if item.kind ~= 'ped' and item.kind ~= 'vehicle' then return { ok = false, error = 'not_recordable' } end
+    if item.kind == 'vehicle' and GetVehiclePedIsIn(PlayerPedId(), false) == 0 then return { ok = false, error = 'need_vehicle' } end
+
+    local pos, rot = Entities:transform(data.id)
+    local startT = math.max(0, math.floor(tonumber(data.startT) or 0))
+    local handle = item.handle
+
+    SetEntityVisible(handle, false, false)
+    SetEntityCollision(handle, false, false)
+    SetNuiFocus(false, false)
+    RenderScriptCams(false, false, 0, true, true)
+    ClearFocus()
+    send('recording', { active = true, id = data.id })
+
+    CreateThread(function()
+        local keys, err = Recorder.run({
+            kind = item.kind,
+            from = { pos = pos, rot = rot },
+            startT = startT,
+            hint = data.hint,
+            tick = function(t)
+                currentT = t
+                applyTime()
+            end,
+        })
+        if DoesEntityExist(handle) then
+            SetEntityVisible(handle, true, false)
+            SetEntityCollision(handle, true, false)
+        end
+        if not isOpen then return end
+        Freecam.reactivate()
+        setFocus()
+        send('recording', { active = false, id = data.id, keys = keys, error = err })
+    end)
+    return { ok = true }
 end)
 
 -- Menús Mundo y Ajustes --------------------------------------------------------

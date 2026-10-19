@@ -34,6 +34,7 @@ client_scripts {
     'client/pool.lua',
     'client/select.lua',
     'client/gizmo.lua',
+    'client/recorder.lua',
     'client/editor.lua',
     'client/player.lua',
     'client/ambience.lua',
