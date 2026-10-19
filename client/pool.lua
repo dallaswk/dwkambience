@@ -274,6 +274,14 @@ function EntityPool:updateCrowds(origin, spawnDistance, despawnDistance, budget)
     end
 end
 
+--- ¿Están creadas todas las personas de todas las multitudes?
+function EntityPool:crowdsReady()
+    for _, item in pairs(self.items) do
+        if item.crowdSet and item.crowdSet.spawned < #item.crowdSet.members then return false end
+    end
+    return true
+end
+
 --- Peds vivos de este pool: actores más personas de multitudes
 function EntityPool:pedCount()
     local count = 0

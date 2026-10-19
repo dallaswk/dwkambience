@@ -28,8 +28,11 @@ onMounted(() => loadSounds().then((list) => (sounds.value = list)))
 // Máximo de personas para esta multitud sin pasar el límite del ambience
 const crowdMax = computed(() => {
   if (!crowd.value) return 0
-  const others = editor.pedCount - crowd.value.count
-  return Math.max(1, Math.min(60, editor.maxPedsPerAmbience - others))
+  // En ambiences manda el límite de peds; en cutscenes, el de entidades del estudio
+  const limit = editor.meta?.type === 'ambience'
+    ? editor.maxPedsPerAmbience - (editor.pedCount - crowd.value.count)
+    : (editor.studio?.maxEntities ?? 60) - (editor.entityCount - crowd.value.count)
+  return Math.max(1, Math.min(60, limit))
 })
 
 const FACINGS: Facing[] = ['random', 'along', 'point']

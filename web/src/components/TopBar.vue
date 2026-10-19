@@ -140,9 +140,8 @@ const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
   { kind: 'text', label: 'paletteText' },
   { kind: 'light', label: 'paletteLight' },
   { kind: 'ptfx', label: 'palettePtfx' },
-  ...(editor.meta?.type === 'ambience'
-    ? [{ kind: 'sound' as const, label: 'paletteSound' as const }, { kind: 'crowd' as const, label: 'paletteCrowd' as const }]
-    : []),
+  { kind: 'sound', label: 'paletteSound' },
+  { kind: 'crowd', label: 'paletteCrowd' },
 ])
 
 function spawnFrom(kind: EntityKind, model: string) {

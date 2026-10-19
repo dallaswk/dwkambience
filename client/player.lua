@@ -86,6 +86,7 @@ local function stop(skipped, immediate)
     RenderScriptCams(false, false, 0, true, true)
     if a.cam then DestroyCam(a.cam, false) end
     ClearFocus()
+    Audio3D.clear('cutscene')
     World.restore()
     DisplayRadar(true)
 
@@ -137,6 +138,15 @@ local function run(payload, onEnd)
     if active ~= a then return end
 
     a.pool:load(prepared, 0)
+
+    -- Multitudes: toda la gente se crea durante la pantalla en negro (las cutscenes no usan distancia)
+    local budget = { left = Config.Studios[Config.DefaultStudio].maxEntities }
+    repeat
+        a.pool:updateCrowds(GetEntityCoords(PlayerPedId()), 100000.0, 100001.0, budget)
+        Wait(50)
+    until a.pool:crowdsReady() or netNow() >= a.startAt - 100 or active ~= a
+    if active ~= a then return end
+    Audio3D.set('cutscene', a.pool:emitters())
 
     local camPos, camRot = GetGameplayCamCoord(), GetGameplayCamRot(2)
     a.cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', camPos.x, camPos.y, camPos.z, camRot.x, camRot.y, camRot.z, 50.0, true, 2)
@@ -193,6 +203,11 @@ local function run(payload, onEnd)
         if now - lastSync > 1000 then
             SendNUIMessage({ action = 'music', data = { group = 'cutscene', state = 'sync', t = t } })
             lastSync = now
+        end
+        -- Los emisores pueden moverse con su pista
+        if now - (a.lastAudio or 0) > 500 then
+            Audio3D.set('cutscene', a.pool:emitters())
+            a.lastAudio = now
         end
 
         DisableAllControlActions(0)
