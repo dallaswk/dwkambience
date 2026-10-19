@@ -474,6 +474,39 @@ export const useEditor = defineStore('editor', () => {
     setScreen(id, { ...(current ?? defaultScreen()), ...patch })
   }
 
+  // --- Inspector: ropa, mirada y props pegados ------------------------------------------
+
+  /** Copia la ropa del jugador al ped; con clone también su modelo (si es freemode) */
+  async function copyPlayerOutfit(id: string, clone = false) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity || !canEdit.value) return
+    const result = await fetchNui<Result & { outfit: string; model?: string }>('playerOutfit')
+    if (!result?.ok) return fail(result)
+    if (clone && !result.model) toasts.push(t('cloneModelUnknown'), 'warning', 6000)
+    updateEntity(id, {
+      ...(clone && result.model ? { model: result.model } : {}),
+      props: { ...entity.props, outfit: result.outfit },
+    })
+  }
+
+  async function lookAtCamera(id: string) {
+    const point = await cameraPoint()
+    if (point) setProp(id, 'lookAt', point)
+  }
+
+  type Attach = { to: string; bone: number; x: number; y: number; z: number; rx: number; ry: number; rz: number }
+
+  /** Pega un prop a un ped o vehículo de la escena (null lo suelta) */
+  function setAttach(id: string, patch: Partial<Attach> | null) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity) return
+    if (!patch) return setProp(id, 'attach', undefined)
+    const current = (entity.props.attach ?? {}) as Partial<Attach>
+    const next: Attach = { to: '', bone: 57005, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, ...current, ...patch }
+    if (!next.to) return setProp(id, 'attach', undefined)
+    setProp(id, 'attach', next)
+  }
+
   /** Cambia la definición de texto, luz o partículas de una entidad */
   function updateDef(id: string, kind: 'text' | 'light' | 'ptfx', patch: Partial<TextDef & LightDef & PtfxDef>) {
     const entity = scene.value?.entities.find((e) => e.id === id)
@@ -987,7 +1020,7 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
-    revisions, openHistory, restoreRevision,
+    revisions, openHistory, restoreRevision, copyPlayerOutfit, lookAtCamera, setAttach,
     screenProps, spawnScreen, isScreenModel, setScreen, updateScreen,
     transfer, exportScene, openImport, importScene, networkedCount, maxNetworked, setNetworked,
     ptfxCatalog, recording, multiSelected, selectionIds, setPieces, spawnText, spawnLight, spawnPtfx, updateDef,

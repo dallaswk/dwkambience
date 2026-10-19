@@ -113,6 +113,7 @@ const handlers: Record<string, (data: any) => unknown> = {
 
   pick: () => ({ ok: true, id: null }),
   vehicleType: () => ({ ok: true, type: 'automobile' }),
+  playerOutfit: () => ({ ok: true, outfit: '0:0:0,1:0:0,3:15:0,4:21:0,6:34:0,8:15:0,11:15:0|0:-1:0', model: 'mp_m_freemode_01' }),
   revisions: ({ id }: { id: number }) => ({
     ok: true,
     revisions: (revisions.get(id) ?? []).map(({ rev, createdBy, createdAt, data }) => ({ rev, createdBy, createdAt, size: JSON.stringify(data).length })),

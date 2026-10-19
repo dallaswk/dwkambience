@@ -48,6 +48,28 @@ const fromHex = (hex: string): Color => [1, 3, 5].map((i) => parseInt(hex.slice(
 const FONTS = [0, 1, 2, 4, 6, 7]
 const num = (e: Event) => Number((e.target as HTMLInputElement).value)
 const text = (e: Event) => (e.target as HTMLInputElement).value
+const checked = (e: Event) => (e.target as HTMLInputElement).checked
+
+const WINDOW_TINTS = ['tintNone', 'tintPureBlack', 'tintDarkSmoke', 'tintLightSmoke', 'tintStock', 'tintLimo', 'tintGreen'] as const
+const BONES = [
+  { id: 57005, label: 'boneRightHand' },
+  { id: 18905, label: 'boneLeftHand' },
+  { id: 31086, label: 'boneHead' },
+  { id: 24818, label: 'boneSpine' },
+  { id: 11816, label: 'bonePelvis' },
+] as const
+
+const attach = computed(() => (props.value.attach ?? null) as { to: string; bone: number; x: number; y: number; z: number; rx: number; ry: number; rz: number } | null)
+const attachTargets = computed(() => editor.scene?.entities.filter((e) => (e.kind === 'ped' || e.kind === 'vehicle') && e.id !== entity.value?.id) ?? [])
+const attachTargetKind = computed(() => editor.scene?.entities.find((e) => e.id === attach.value?.to)?.kind)
+const lookAt = computed(() => (Array.isArray(props.value.lookAt) ? (props.value.lookAt as number[]) : null))
+function setAttachOffset(v: Vec3) {
+  if (entity.value) editor.setAttach(entity.value.id, { x: v[0], y: v[1], z: v[2] })
+}
+function setAttachRotation(v: Vec3) {
+  if (entity.value) editor.setAttach(entity.value.id, { rx: v[0], ry: v[1], rz: v[2] })
+}
+const alphaPct = computed(() => Math.round(((props.value.alpha as number | undefined) ?? 255) / 2.55))
 
 // Animación de ped: se edita en local y se aplica con el botón para no lanzar una anim por tecla
 const animDict = ref('')
@@ -377,6 +399,78 @@ function toggleDoor(door: number) {
           </div>
         </section>
 
+        <section v-if="entity.kind === 'ped'">
+          <div class="section-title">{{ t('outfit') }}</div>
+          <p class="note">{{ props.outfit ? t('outfitCustom') : t('outfitDefault') }}</p>
+          <div class="tools two">
+            <button class="btn" :disabled="disabled" @click="editor.copyPlayerOutfit(entity.id)">{{ t('outfitCopy') }}</button>
+            <button class="btn" :disabled="disabled" @click="editor.copyPlayerOutfit(entity.id, true)">{{ t('outfitClone') }}</button>
+          </div>
+          <button v-if="props.outfit" class="btn ghost" :disabled="disabled" @click="editor.setProp(entity.id, 'outfit', undefined)">{{ t('outfitReset') }}</button>
+
+          <div class="section-title sub">{{ t('lookAt') }}</div>
+          <p class="note">{{ lookAt ? lookAt.map((v) => v.toFixed(1)).join(', ') : t('lookAtNone') }}</p>
+          <div class="tools two">
+            <button class="btn" :disabled="disabled" @click="editor.lookAtCamera(entity.id)">{{ t('lookAtCamera') }}</button>
+            <button class="btn ghost" :disabled="disabled || !lookAt" @click="editor.setProp(entity.id, 'lookAt', undefined)">{{ t('lookAtClear') }}</button>
+          </div>
+        </section>
+
+        <section v-if="entity.kind === 'prop'">
+          <div class="section-title">{{ t('attachTitle') }}</div>
+          <label class="field">
+            <span>{{ t('attachTo') }}</span>
+            <select :value="attach?.to ?? ''" :disabled="disabled" @change="editor.setAttach(entity.id, text($event) ? { to: text($event) } : null)">
+              <option value="">{{ t('attachNone') }}</option>
+              <option v-for="target in attachTargets" :key="target.id" :value="target.id">{{ target.label }}</option>
+            </select>
+          </label>
+          <template v-if="attach">
+            <label v-if="attachTargetKind === 'ped'" class="field">
+              <span>{{ t('attachBone') }}</span>
+              <select :value="attach.bone" :disabled="disabled" @change="editor.setAttach(entity.id, { bone: num($event) })">
+                <option v-for="b in BONES" :key="b.id" :value="b.id">{{ t(b.label) }}</option>
+              </select>
+            </label>
+            <Vec3Field :label="t('attachOffset')" :value="[attach.x, attach.y, attach.z]" :step="0.01" :disabled="disabled" @change="setAttachOffset" />
+            <Vec3Field :label="t('rotation')" :value="[attach.rx, attach.ry, attach.rz]" :step="1" :disabled="disabled" @change="setAttachRotation" />
+            <p class="note">{{ t('attachHint') }}</p>
+          </template>
+        </section>
+
+        <section v-if="entity.kind === 'vehicle'">
+          <div class="section-title">{{ t('tuning') }}</div>
+          <label class="field">
+            <span>{{ t('colorPrimary') }}</span>
+            <span class="color-row">
+              <input type="color" :value="props.primary ? toHex(props.primary as Color) : '#ffffff'" :disabled="disabled" @change="editor.setProp(entity.id, 'primary', fromHex(text($event)))" />
+              <button v-if="props.primary" class="btn icon ghost" :title="t('colorReset')" :disabled="disabled" @click="editor.setProp(entity.id, 'primary', undefined)"><Icon name="close" :size="12" /></button>
+            </span>
+          </label>
+          <label class="field">
+            <span>{{ t('colorSecondary') }}</span>
+            <span class="color-row">
+              <input type="color" :value="props.secondary ? toHex(props.secondary as Color) : '#ffffff'" :disabled="disabled" @change="editor.setProp(entity.id, 'secondary', fromHex(text($event)))" />
+              <button v-if="props.secondary" class="btn icon ghost" :title="t('colorReset')" :disabled="disabled" @click="editor.setProp(entity.id, 'secondary', undefined)"><Icon name="close" :size="12" /></button>
+            </span>
+          </label>
+          <label class="field">
+            <span>{{ t('livery') }}</span>
+            <input type="number" min="-1" max="50" step="1" :value="props.livery ?? -1" :disabled="disabled" @change="editor.setProp(entity.id, 'livery', num($event) >= 0 ? num($event) : undefined)" />
+          </label>
+          <label class="field">
+            <span>{{ t('windowTint') }}</span>
+            <select :value="props.windowTint ?? 0" :disabled="disabled" @change="editor.setProp(entity.id, 'windowTint', num($event) || undefined)">
+              <option v-for="(tint, i) in WINDOW_TINTS" :key="tint" :value="i">{{ t(tint) }}</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>{{ t('plate') }}</span>
+            <input class="mono" maxlength="8" :value="props.plate ?? ''" :disabled="disabled" @change="editor.setProp(entity.id, 'plate', text($event).trim().toUpperCase() || undefined)" />
+          </label>
+          <label class="switch"><input type="checkbox" :checked="props.xenon === true" :disabled="disabled" @change="editor.setProp(entity.id, 'xenon', checked($event) || undefined)" /> {{ t('xenon') }}</label>
+        </section>
+
         <section v-if="entity.kind === 'vehicle'">
           <div class="section-title">{{ t('vehicle') }}</div>
           <label class="switch"><input type="checkbox" :checked="props.engine === true" :disabled="disabled" @change="setProp('engine', ($event.target as HTMLInputElement).checked || undefined)" /> {{ t('engineOn') }}</label>
@@ -392,6 +486,15 @@ function toggleDoor(door: number) {
               {{ t(door) }}
             </button>
           </div>
+        </section>
+
+        <section v-if="isGameEntity">
+          <div class="section-title">{{ t('appearance') }}</div>
+          <label class="range">
+            <span>{{ t('opacity') }} <span class="mono faint">{{ alphaPct }}%</span></span>
+            <input type="range" min="0" max="255" step="5" :value="props.alpha ?? 255" :disabled="disabled" @change="editor.setProp(entity.id, 'alpha', num($event) < 255 ? num($event) : undefined)" />
+          </label>
+          <label class="switch"><input type="checkbox" :checked="props.collision !== false" :disabled="disabled" @change="editor.setProp(entity.id, 'collision', checked($event) ? undefined : false)" /> {{ t('collision') }}</label>
         </section>
 
         <section>
@@ -425,6 +528,9 @@ section + section { border-top: 1px solid var(--line); }
 .sub { margin-top: 6px; }
 .tools { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; margin-top: 4px; }
 .tools.single { grid-template-columns: 1fr; }
+.color-row { display: flex; align-items: center; gap: 4px; }
+.color-row input { flex: 1; }
+.color-row .btn.icon { width: 24px; height: 24px; }
 .note { margin: 0; font-size: var(--fs-xs); color: var(--text-3); line-height: 1.5; }
 .tools.two { grid-template-columns: 1fr 1fr; }
 .field { display: grid; grid-template-columns: 1fr 150px; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }
