@@ -1,23 +1,37 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { loadSounds, type SoundAsset } from '../audio'
 import { CATALOG } from '../catalog'
-import { t } from '../i18n'
+import { t, tOr } from '../i18n'
+import { useEditor } from '../stores/editor'
 import type { EntityKind } from '../types'
 import Icon from './Icon.vue'
 
 const props = defineProps<{ kind: EntityKind; open: boolean }>()
 const emit = defineEmits<{ spawn: [model: string]; close: [] }>()
 
+const editor = useEditor()
 const query = ref('')
 const input = ref<HTMLInputElement | null>(null)
+const sounds = ref<SoundAsset[]>([])
+onMounted(() => loadSounds().then((list) => (sounds.value = list)))
+
+// Peds, coches y props salen del catálogo; sonidos del manifest; multitudes de los presets de config.lua
+const source = computed(() => {
+  if (props.kind === 'sound') return sounds.value.map((s) => ({ model: s.id, label: s.id }))
+  if (props.kind === 'crowd') return editor.crowdPresets.map((p) => ({ model: p, label: tOr(`preset_${p}`, p) }))
+  return CATALOG[props.kind] ?? []
+})
 
 const items = computed(() => {
   const q = query.value.trim().toLowerCase()
-  const list = CATALOG[props.kind] ?? []
-  return q ? list.filter((i) => i.model.includes(q) || i.label.toLowerCase().includes(q)) : list
+  const list = source.value
+  return q ? list.filter((i) => i.model.toLowerCase().includes(q) || i.label.toLowerCase().includes(q)) : list
 })
 
+// Escribir un modelo a mano solo tiene sentido con modelos del juego
 const custom = computed(() => {
+  if (props.kind === 'sound' || props.kind === 'crowd') return null
   const q = query.value.trim().toLowerCase()
   return /^[\w-]+$/.test(q) && !items.value.some((i) => i.model === q) ? q : null
 })
@@ -63,7 +77,7 @@ function choose(model: string) {
           <span class="mono faint">{{ item.model }}</span>
         </button>
       </li>
-      <li v-if="!items.length && !custom" class="empty faint">{{ t('noMatches') }}</li>
+      <li v-if="!items.length && !custom" class="empty faint">{{ kind === 'sound' && !sounds.length ? t('noSounds') : t('noMatches') }}</li>
     </ul>
   </div>
 </template>

@@ -66,7 +66,13 @@ local function openEditor()
     FreezeEntityPosition(PlayerPedId(), true)
     Freecam.start(GetGameplayCamCoord(), GetGameplayCamRot(2))
     setFocus()
-    send('open', { studios = Config.Studios, defaultStudio = Config.DefaultStudio, locale = Config.Locale })
+    local presets = {}
+    for id in pairs(Config.CrowdPresets) do presets[#presets + 1] = id end
+    table.sort(presets, function(a, b) return a == 'custom' or (b ~= 'custom' and a < b) end)
+    send('open', {
+        studios = Config.Studios, defaultStudio = Config.DefaultStudio, locale = Config.Locale,
+        presets = presets, maxPedsPerAmbience = Config.Ambience.maxPedsPerAmbience,
+    })
     CreateThread(editorLoop)
 end
 

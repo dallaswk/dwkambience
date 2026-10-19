@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { VEHICLE_DOORS } from '../catalog'
-import { t } from '../i18n'
+import { loadSounds, type SoundAsset } from '../audio'
+import { t, tOr } from '../i18n'
 import { KIND_LABEL, baseTransform, formatTime } from '../scene'
 import { useEditor } from '../stores/editor'
-import type { Vec3 } from '../types'
+import type { Facing, Vec3 } from '../types'
 import { useTimeline } from '../stores/timeline'
 import Icon from './Icon.vue'
 import KeyPanel from './KeyPanel.vue'
@@ -18,6 +19,22 @@ const entity = computed(() => editor.selected)
 const transform = computed(() => editor.pose ?? (editor.scene && entity.value ? baseTransform(editor.scene, entity.value.id) : undefined))
 const disabled = computed(() => !editor.canEdit || editor.gizmoActive)
 const props = computed(() => entity.value?.props ?? {})
+const isGameEntity = computed(() => !!entity.value?.model)
+const crowd = computed(() => entity.value?.crowd)
+const sound = computed(() => entity.value?.sound)
+const sounds = ref<SoundAsset[]>([])
+onMounted(() => loadSounds().then((list) => (sounds.value = list)))
+
+// Máximo de personas para esta multitud sin pasar el límite del ambience
+const crowdMax = computed(() => {
+  if (!crowd.value) return 0
+  const others = editor.pedCount - crowd.value.count
+  return Math.max(1, Math.min(60, editor.maxPedsPerAmbience - others))
+})
+
+const FACINGS: Facing[] = ['random', 'along', 'point']
+const num = (e: Event) => Number((e.target as HTMLInputElement).value)
+const text = (e: Event) => (e.target as HTMLInputElement).value
 
 // Animación de ped: se edita en local y se aplica con el botón para no lanzar una anim por tecla
 const animDict = ref('')
@@ -90,7 +107,7 @@ function toggleDoor(door: number) {
           :disabled="disabled"
           @change="editor.updateEntity(entity.id, { label: ($event.target as HTMLInputElement).value.trim() || entity.label })"
         />
-        <label class="model">
+        <label v-if="isGameEntity" class="model">
           <span class="faint">{{ t('model') }}</span>
           <input
             class="mono"
@@ -103,13 +120,16 @@ function toggleDoor(door: number) {
       </header>
 
       <div class="scroll body">
-        <section>
+        <section v-if="entity.kind !== 'crowd'">
           <div class="section-title">{{ t('transform') }}</div>
           <template v-if="transform">
             <Vec3Field :label="t('position')" :value="transform.pos" :step="0.05" :disabled="disabled" @change="setPos" />
-            <Vec3Field :label="t('rotation')" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
+            <Vec3Field v-if="isGameEntity" :label="t('rotation')" :value="transform.rot" :step="1" :disabled="disabled" @change="setRot" />
           </template>
-          <div class="tools">
+          <div v-if="!isGameEntity" class="tools single">
+            <button class="btn" :disabled="disabled" @click="editor.moveToCamera(entity.id)"><Icon name="focus" :size="14" /> {{ t('moveToCamera') }}</button>
+          </div>
+          <div v-else class="tools">
             <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'translate')"><Icon name="move" :size="14" /> {{ t('move') }}</button>
             <button class="btn" :disabled="disabled" @click="editor.startGizmo(entity.id, 'rotate')"><Icon name="rotate" :size="14" /> {{ t('rotate') }}</button>
             <button class="btn" :disabled="disabled" @click="editor.ground(entity.id)"><Icon name="ground" :size="14" /> {{ t('ground') }}</button>
@@ -134,6 +154,87 @@ function toggleDoor(door: number) {
             :disabled="disabled"
             @change="setScenario(($event.target as HTMLInputElement).value)"
           />
+        </section>
+
+        <section v-if="sound">
+          <div class="section-title">{{ t('soundEmitter') }}</div>
+          <label class="field">
+            <span>{{ t('clipAsset') }}</span>
+            <select :value="sound.asset" :disabled="disabled" @change="editor.updateSound(entity.id, { asset: text($event) })">
+              <option v-if="!sounds.some((s) => s.id === sound!.asset)" :value="sound.asset">{{ sound.asset }}</option>
+              <option v-for="s in sounds" :key="s.id" :value="s.id">{{ s.id }}</option>
+            </select>
+          </label>
+          <label class="range">
+            <span>{{ t('clipVolume') }} <span class="mono faint">{{ Math.round(sound.volume * 100) }}%</span></span>
+            <input type="range" min="0" max="1" step="0.01" :value="sound.volume" :disabled="disabled" @change="editor.updateSound(entity.id, { volume: num($event) })" />
+          </label>
+          <label class="range">
+            <span>{{ t('soundRange') }} <span class="mono faint">{{ sound.range }} m</span></span>
+            <input type="range" min="1" max="200" step="1" :value="sound.range" :disabled="disabled" @change="editor.updateSound(entity.id, { range: num($event) })" />
+          </label>
+          <label class="switch"><input type="checkbox" :checked="sound.loop" :disabled="disabled" @change="editor.updateSound(entity.id, { loop: ($event.target as HTMLInputElement).checked })" /> {{ t('clipLoop') }}</label>
+        </section>
+
+        <section v-if="crowd">
+          <div class="section-title">{{ t('crowd') }}</div>
+          <label class="field">
+            <span>{{ t('crowdPreset') }}</span>
+            <select :value="crowd.preset" :disabled="disabled" @change="editor.updateCrowd(entity.id, { preset: text($event) })">
+              <option v-for="p in editor.crowdPresets" :key="p" :value="p">{{ tOr(`preset_${p}`, p) }}</option>
+            </select>
+          </label>
+          <template v-if="crowd.preset === 'custom'">
+            <label class="field column">
+              <span>{{ t('crowdModels') }}</span>
+              <input
+                class="mono"
+                :value="(crowd.models ?? []).join(', ')"
+                placeholder="a_m_y_hipster_01, a_f_y_hipster_01"
+                :disabled="disabled"
+                @change="editor.updateCrowd(entity.id, { models: text($event).split(',').map((m) => m.trim().toLowerCase()).filter((m) => /^[\w-]+$/.test(m)).slice(0, 16) })"
+              />
+            </label>
+            <label class="field column">
+              <span>{{ t('scenario') }}</span>
+              <input
+                class="mono"
+                :value="crowd.scenario ?? ''"
+                placeholder="WORLD_HUMAN_STAND_IMPATIENT"
+                :disabled="disabled"
+                @change="editor.updateCrowd(entity.id, { scenario: text($event).trim().toUpperCase().replace(/[^\w-]/g, '') || undefined })"
+              />
+            </label>
+          </template>
+          <label class="range">
+            <span>{{ t('crowdCount') }} <span class="mono faint">{{ crowd.count }} / {{ crowdMax }}</span></span>
+            <input type="range" min="1" :max="crowdMax" step="1" :value="crowd.count" :disabled="disabled" @change="editor.updateCrowd(entity.id, { count: num($event) })" />
+          </label>
+          <label class="range">
+            <span>{{ t('crowdSpread') }} <span class="mono faint">{{ crowd.spread }} m</span></span>
+            <input type="range" min="0" max="30" step="0.5" :value="crowd.spread" :disabled="disabled" @change="editor.updateCrowd(entity.id, { spread: num($event) })" />
+          </label>
+          <label class="field">
+            <span>{{ t('crowdFacing') }}</span>
+            <select :value="crowd.facing" :disabled="disabled" @change="text($event) === 'point' ? editor.crowdLookAtCamera(entity.id) : editor.updateCrowd(entity.id, { facing: text($event) as Facing })">
+              <option v-for="f in FACINGS" :key="f" :value="f">{{ t(f === 'random' ? 'facingRandom' : f === 'along' ? 'facingAlong' : 'facingPoint') }}</option>
+            </select>
+          </label>
+          <button v-if="crowd.facing === 'point'" class="btn" :disabled="disabled" @click="editor.crowdLookAtCamera(entity.id)">{{ t('crowdLookAtCamera') }}</button>
+          <button class="btn" :disabled="disabled" @click="editor.regenerateCrowd(entity.id)"><Icon name="loop" :size="14" /> {{ t('crowdRegenerate') }}</button>
+
+          <div class="section-title sub">{{ t('crowdPoints') }} <span class="faint">{{ crowd.points.length }}/32</span></div>
+          <p class="note">{{ crowd.points.length === 1 ? t('crowdAreaHint') : t('crowdLineHint') }}</p>
+          <ol class="points">
+            <li v-for="(p, i) in crowd.points" :key="i">
+              <span class="mono">{{ p.map((v) => v.toFixed(1)).join(', ') }}</span>
+              <button class="btn icon ghost" :disabled="disabled || crowd.points.length <= 1" :title="t('delete')" @click="editor.removeCrowdPoint(entity.id, i)"><Icon name="close" :size="12" /></button>
+            </li>
+          </ol>
+          <div class="tools two">
+            <button class="btn" :disabled="disabled || crowd.points.length >= 32" @click="editor.addCrowdPoint(entity.id)"><Icon name="plus" :size="14" /> {{ t('crowdAddPoint') }}</button>
+            <button class="btn" :class="{ active: editor.placingPoints }" :disabled="disabled" @click="editor.placingPoints = !editor.placingPoints">{{ t('crowdPlaceMode') }}</button>
+          </div>
         </section>
 
         <section v-if="entity.kind === 'vehicle'">
@@ -175,6 +276,15 @@ section { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 section + section { border-top: 1px solid var(--line); }
 .sub { margin-top: 6px; }
 .tools { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; margin-top: 4px; }
+.tools.single { grid-template-columns: 1fr; }
+.note { margin: 0; font-size: var(--fs-xs); color: var(--text-3); line-height: 1.5; }
+.tools.two { grid-template-columns: 1fr 1fr; }
+.field { display: grid; grid-template-columns: 1fr 150px; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }
+.field.column { grid-template-columns: 1fr; }
+.field input, .field select { font-size: var(--fs-sm); padding: 5px 7px; }
+.points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 140px; overflow-y: auto; }
+.points li { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-2); padding-left: 4px; }
+.points .btn.icon { width: 24px; height: 24px; }
 .tools .btn { padding: 0 8px; }
 .hint { margin: 0; font-size: var(--fs-xs); color: var(--accent); line-height: 1.5; }
 .switch { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-2); }

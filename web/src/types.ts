@@ -1,4 +1,4 @@
-// Espejo en TS de shared/scene.lua (schema 2)
+// Espejo en TS de shared/scene.lua (schema 3)
 
 export type Vec3 = [number, number, number]
 export type SceneType = 'cutscene' | 'ambience'
@@ -9,13 +9,37 @@ export type EventType = 'fade' | 'subtitle' | 'trigger'
 
 export type PropValue = boolean | number | string | (boolean | number | string)[] | Record<string, boolean | number | string>
 
+export type Facing = 'random' | 'along' | 'point'
+
+export interface CrowdDef {
+  preset: string
+  count: number
+  seed: number
+  points: Vec3[]
+  spread: number
+  facing: Facing
+  lookAt?: Vec3
+  models?: string[]
+  scenario?: string
+}
+
+export interface SoundDef {
+  asset: string
+  volume: number
+  range: number
+  loop: boolean
+}
+
 export interface SceneEntity {
   id: string
   kind: EntityKind
-  model: string
+  /** Solo ped, vehicle y prop */
+  model?: string
   label: string
   props: Record<string, PropValue>
   networked: boolean
+  crowd?: CrowdDef
+  sound?: SoundDef
 }
 
 /** Key de transform o de cámara */
@@ -70,6 +94,7 @@ export interface SceneSettings {
   active: boolean
   schedule: { from: string; to: string } | null
   trigger: { center: Vec3; enter: number; exit: number } | null
+  timecycle: { name: string; strength: number } | null
 }
 
 export interface SceneData {

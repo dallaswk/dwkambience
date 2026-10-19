@@ -24,7 +24,12 @@ function onUp(e: MouseEvent) {
     fetchNui('camLook', { active: false })
   } else if (e.button === 0 && downAt && editor.scene) {
     const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y)
-    if (moved < 4) editor.pick(e.clientX / window.innerWidth, e.clientY / window.innerHeight)
+    if (moved < 4) {
+      const x = e.clientX / window.innerWidth
+      const y = e.clientY / window.innerHeight
+      if (editor.placingPoints && editor.selected?.kind === 'crowd') editor.placePoint(x, y)
+      else editor.pick(x, y)
+    }
   }
   downAt = null
 }
@@ -35,7 +40,8 @@ onBeforeUnmount(() => window.removeEventListener('mouseup', onUp))
 
 <template>
   <div class="viewport" :class="{ looking }" @mousedown="onDown" @contextmenu.prevent>
-    <div v-if="editor.scene && !editor.gizmoActive" class="hint">
+    <div v-if="editor.placingPoints && editor.selected?.kind === 'crowd'" class="gizmo-banner">{{ t('placingPointsBanner') }}</div>
+    <div v-else-if="editor.scene && !editor.gizmoActive" class="hint">
       {{ t('viewportHint') }}
     </div>
     <div v-if="editor.gizmoActive" class="gizmo-banner">

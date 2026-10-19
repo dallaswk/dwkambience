@@ -5,10 +5,11 @@ import type { MessageKey } from '../i18n'
 import { fetchNui } from '../nui'
 import {
   CAMERA, EVENTS, MUSIC, addClip, addEventKey, findTrack, keyIndexAt, nextEntityId, normalizeScene, sceneDuration,
+  scenePeds, sceneWeight,
   removeEntity as removeFromScene, removeItem, transformTrack, updateClip, updateKey, upsertPoseKey,
 } from '../scene'
 import type {
-  AnyClip, AnyKey, EntityKind, EventType, OpenResult, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
+  AnyClip, AnyKey, CrowdDef, EntityKind, EventType, OpenResult, SoundDef, Result, SceneData, SceneEntity, SceneMeta, SceneRow,
   SceneType, Studio, Track, Vec3,
 } from '../types'
 import { useHistory } from './history'
@@ -26,6 +27,8 @@ const ERRORS: Record<string, MessageKey> = {
   invalid_anim: 'errInvalidAnim',
   spawn_failed: 'errSpawnFailed',
   too_many_entities: 'errTooManyEntities',
+  too_many_peds: 'errTooManyPeds',
+  not_ambience: 'errNotAmbience',
   too_large: 'errTooLarge',
   corrupt_scene: 'errCorrupt',
   db_error: 'errDb',
@@ -82,9 +85,14 @@ export const useEditor = defineStore('editor', () => {
   const worldPreview = ref(false)
   const camSpeed = ref(1)
   const dialog = ref<'shortcuts' | 'about' | null>(null)
+  const crowdPresets = ref<string[]>([])
+  const maxPedsPerAmbience = ref(60)
+  const placingPoints = ref(false) // clic en el viewport añade puntos a la multitud seleccionada
 
   const studio = computed<Studio | null>(() => (meta.value ? studios.value[meta.value.studio] ?? null : null))
-  const entityCount = computed(() => scene.value?.entities.length ?? 0)
+  // Cada persona de una multitud cuenta para el límite del estudio
+  const entityCount = computed(() => (scene.value ? sceneWeight(scene.value) : 0))
+  const pedCount = computed(() => (scene.value ? scenePeds(scene.value) : 0))
   const selected = computed<SceneEntity | null>(() => scene.value?.entities.find((e) => e.id === selectedId.value) ?? null)
   const canEdit = computed(() => !!scene.value && !readOnly.value)
 
@@ -156,8 +164,10 @@ export const useEditor = defineStore('editor', () => {
 
   // --- Ciclo de vida --------------------------------------------------------
 
-  function show(payload: { studios: unknown; locale?: unknown }) {
+  function show(payload: { studios: unknown; locale?: unknown; presets?: unknown; maxPedsPerAmbience?: unknown }) {
     setLocale(payload.locale)
+    crowdPresets.value = Array.isArray(payload.presets) ? (payload.presets as string[]) : []
+    if (typeof payload.maxPedsPerAmbience === 'number') maxPedsPerAmbience.value = payload.maxPedsPerAmbience
     studios.value = toStudios(payload.studios)
     visible.value = true
     refreshList()
@@ -182,6 +192,7 @@ export const useEditor = defineStore('editor', () => {
     gizmoActive.value = false
     worldPreview.value = false
     previewing.value = false
+    placingPoints.value = false
   }
 
   async function exit() {
@@ -287,6 +298,127 @@ export const useEditor = defineStore('editor', () => {
     select(id)
   }
 
+  /** Punto que mira la cámara (sobre el mapa si lo hay) */
+  async function cameraPoint(): Promise<Vec3 | null> {
+    const result = await fetchNui<Result & { pos: Vec3 }>('cameraPoint')
+    return result?.ok ? result.pos : null
+  }
+
+  function pedsLeft() {
+    return Math.min(
+      meta.value?.type === 'ambience' ? maxPedsPerAmbience.value - pedCount.value : Infinity,
+      studio.value ? studio.value.maxEntities - entityCount.value : Infinity,
+    )
+  }
+
+  async function spawnSound(asset: string) {
+    if (!scene.value || !canEdit.value) return
+    const pos = await cameraPoint()
+    if (!pos) return
+    const { id, label } = nextEntityId(scene.value, 'sound')
+    const entity: SceneEntity = { id, kind: 'sound', label: `${label} · ${asset}`.slice(0, 64), props: {}, networked: false,
+      sound: { asset, volume: 1, range: 30, loop: true } }
+    const at = useTimeline().snapTime(useTimeline().time)
+    edit((s) => {
+      s.entities = [...s.entities, entity]
+      upsertPoseKey(s, id, 'transform', { t: at, pos: [pos[0], pos[1], pos[2] + 1], rot: [0, 0, 0] })
+    })
+    select(id)
+  }
+
+  async function spawnCrowd(preset: string) {
+    if (!scene.value || !canEdit.value) return
+    const count = Math.min(10, pedsLeft())
+    if (count < 1) return fail({ ok: false, error: meta.value?.type === 'ambience' ? 'too_many_peds' : 'too_many_entities' })
+    const pos = await cameraPoint()
+    if (!pos) return
+    const { id, label } = nextEntityId(scene.value, 'crowd')
+    const crowd: CrowdDef = { preset, count, seed: newSeed(), points: [pos], spread: 4, facing: 'random' }
+    const entity: SceneEntity = { id, kind: 'crowd', label, props: {}, networked: false, crowd }
+    edit((s) => {
+      s.entities = [...s.entities, entity]
+    })
+    select(id)
+  }
+
+  const newSeed = () => 1 + Math.floor(Math.random() * 2147483645)
+
+  function updateCrowd(id: string, patch: Partial<CrowdDef>) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity?.crowd) return
+    const crowd = { ...entity.crowd, ...patch }
+    if (crowd.facing !== 'point') delete crowd.lookAt
+    if (!crowd.models?.length) delete crowd.models
+    if (!crowd.scenario) delete crowd.scenario
+    updateEntity(id, { crowd })
+  }
+
+  function regenerateCrowd(id: string) {
+    updateCrowd(id, { seed: newSeed() })
+  }
+
+  async function addCrowdPoint(id: string, pos?: Vec3) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity?.crowd || entity.crowd.points.length >= 32) return
+    const point = pos ?? (await cameraPoint())
+    if (point) updateCrowd(id, { points: [...entity.crowd.points, point] })
+  }
+
+  function removeCrowdPoint(id: string, index: number) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (!entity?.crowd || entity.crowd.points.length <= 1) return
+    updateCrowd(id, { points: entity.crowd.points.filter((_, i) => i !== index) })
+  }
+
+  async function crowdLookAtCamera(id: string) {
+    const point = await cameraPoint()
+    if (point) updateCrowd(id, { facing: 'point', lookAt: point })
+  }
+
+  /** Clic en el viewport en modo "colocar puntos" */
+  async function placePoint(x: number, y: number) {
+    const id = selectedId.value
+    if (!id) return
+    const result = await fetchNui<Result & { pos: Vec3 }>('worldPoint', { x, y })
+    if (result?.ok) addCrowdPoint(id, result.pos)
+  }
+
+  function updateSound(id: string, patch: Partial<SoundDef>) {
+    const entity = scene.value?.entities.find((e) => e.id === id)
+    if (entity?.sound) updateEntity(id, { sound: { ...entity.sound, ...patch } })
+  }
+
+  async function moveToCamera(id: string) {
+    const pos = await cameraPoint()
+    if (pos) setPose(id, [pos[0], pos[1], pos[2] + 1], [0, 0, 0])
+  }
+
+  // --- Ambience: zona, horario e interruptor ---------------------------------------
+
+  function setTrigger(patch: Partial<NonNullable<SceneData['settings']['trigger']>>) {
+    const current = scene.value?.settings.trigger
+    if (!current) return
+    const trigger = { ...current, ...patch }
+    if (trigger.exit < trigger.enter) trigger.exit = trigger.enter
+    setSettings({ trigger })
+  }
+
+  async function centerZoneOnCamera() {
+    const pos = await cameraPoint()
+    if (!pos || !scene.value) return
+    const current = scene.value.settings.trigger
+    setSettings({ trigger: { enter: current?.enter ?? 80, exit: current?.exit ?? 100, center: pos } })
+  }
+
+  /** Interruptor on/off: se aplica al momento en el servidor, sin guardar la escena */
+  async function setActive(id: number, active: boolean) {
+    const result = await fetchNui<Result & { active: boolean }>('setActive', { id, active })
+    if (!result?.ok) return fail(result)
+    if (meta.value?.id === id) meta.value = { ...meta.value, active: result.active }
+    rows.value = rows.value.map((r) => (r.id === id ? { ...r, active: result.active } : r))
+    toasts.push(t(result.active ? 'ambienceOn' : 'ambienceOff'), 'success')
+  }
+
   function updateEntity(id: string, patch: Partial<Omit<SceneEntity, 'id' | 'kind'>>) {
     edit((s) => {
       s.entities = s.entities.map((e) => (e.id === id ? { ...e, ...patch } : e))
@@ -375,10 +507,11 @@ export const useEditor = defineStore('editor', () => {
   function duplicateEntity(id: string) {
     const source = scene.value?.entities.find((e) => e.id === id)
     if (!scene.value || !source || !canEdit.value) return
-    if (studio.value && entityCount.value >= studio.value.maxEntities) return fail({ ok: false, error: 'too_many_entities' })
+    if (pedsLeft() < Math.max(1, source.crowd?.count ?? 1)) return fail({ ok: false, error: 'too_many_entities' })
 
     const { id: newId } = nextEntityId(scene.value, source.kind)
     const copy: SceneEntity = { ...source, id: newId, label: `${source.label}${t('copySuffix')}`.slice(0, 64) }
+    if (source.crowd) copy.crowd = { ...source.crowd, points: source.crowd.points.map((p) => [p[0] + 1, p[1], p[2]] as Vec3) }
     edit((s) => {
       s.entities = [...s.entities, copy]
       const tracks = s.tracks
@@ -530,6 +663,9 @@ export const useEditor = defineStore('editor', () => {
     selectedId, selected, pose, gizmoActive, showLabels, studio, entityCount, canEdit, selectedItem,
     show, hide, exit, refreshList, createScene, openScene, closeScene, deleteScene, save, setMeta, setSettings,
     spawn, updateEntity, setProp, setPose, removeEntity, select, pick, ground, startGizmo, onGizmo, focus,
+    crowdPresets, maxPedsPerAmbience, placingPoints, pedCount, spawnSound, spawnCrowd, updateCrowd, regenerateCrowd,
+    addCrowdPoint, removeCrowdPoint, crowdLookAtCamera, placePoint, updateSound, moveToCamera, setTrigger,
+    centerZoneOnCamera, setActive,
     previewing, worldPreview, camSpeed, dialog, duplicateEntity, deleteSelection, toggleWorldPreview, cameraToPlayer,
     setCamSpeed, preview, onPreview,
     toggleLabels, undo, redo, checkpoint, schedulePoseRefresh, recordKey, addEvent, addMusic, addAnimClip,

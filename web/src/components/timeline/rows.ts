@@ -29,6 +29,7 @@ export function buildRows(scene: SceneData | null, type: SceneType | undefined):
   rows.push({ id: MUSIC, target: MUSIC, channel: 'audio', icon: 'music', label: null, labelKey: 'rowMusic', subKey: null, entityId: null })
 
   for (const e of scene.entities) {
+    if (e.kind === 'crowd') continue
     rows.push({ id: `${e.id}:transform`, target: e.id, channel: 'transform', icon: e.kind, label: e.label, labelKey: null, subKey: 'rowTransform', entityId: e.id })
     if (e.kind === 'ped') {
       rows.push({ id: `${e.id}:anim`, target: e.id, channel: 'anim', icon: 'ped', label: e.label, labelKey: null, subKey: 'rowAnim', entityId: e.id })

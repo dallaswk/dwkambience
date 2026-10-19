@@ -129,11 +129,20 @@ const menus = computed<Menu[]>(() => {
   ]
 })
 
-const PALETTES: { kind: EntityKind; label: MessageKey }[] = [
+const PALETTES = computed<{ kind: EntityKind; label: MessageKey }[]>(() => [
   { kind: 'ped', label: 'palettePed' },
   { kind: 'vehicle', label: 'paletteVehicle' },
   { kind: 'prop', label: 'paletteProp' },
-]
+  ...(editor.meta?.type === 'ambience'
+    ? [{ kind: 'sound' as const, label: 'paletteSound' as const }, { kind: 'crowd' as const, label: 'paletteCrowd' as const }]
+    : []),
+])
+
+function spawnFrom(kind: EntityKind, model: string) {
+  if (kind === 'sound') editor.spawnSound(model)
+  else if (kind === 'crowd') editor.spawnCrowd(model)
+  else editor.spawn(kind, model)
+}
 
 const savedLabel = computed(() => {
   if (editor.saving) return t('saving')
@@ -205,7 +214,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
         <PaletteMenu
           :kind="p.kind"
           :open="open === p.kind"
-          @spawn="(model) => editor.spawn(p.kind, model)"
+          @spawn="(model) => spawnFrom(p.kind, model)"
           @close="open = null"
         />
       </div>

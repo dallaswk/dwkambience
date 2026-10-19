@@ -10,6 +10,7 @@ interface MockRow {
 const STORAGE_KEY = 'dwkambience:mock-scenes'
 // Idioma del mock: ?lang=en en la URL para probar el inglés
 const LOCALE = new URLSearchParams(location.search).get('lang') ?? 'es'
+const PRESETS = ['custom', 'beach', 'business', 'club', 'concert', 'gangs', 'paparazzi', 'street']
 
 function load(): MockRow[] {
   try {
@@ -59,6 +60,7 @@ const handlers: Record<string, (data: any) => unknown> = {
   create: ({ name, type, group }: { name: string; type: SceneType; group?: string }) => {
     const id = rows.reduce((max, r) => Math.max(max, r.meta.id), 0) + 1
     const data = newScene(type)
+    if (type === 'ambience') data.settings.trigger = { center: randomPos(), enter: 80, exit: 100 }
     const meta: SceneMeta = {
       id, name, type, group: group?.trim() || null, studio: 1,
       durationMs: data.settings.duration, active: false, entityCount: 0, keyCount: 0,
@@ -105,6 +107,17 @@ const handlers: Record<string, (data: any) => unknown> = {
 
   pick: () => ({ ok: true, id: null }),
 
+  cameraPoint: () => ({ ok: true, pos: randomPos() }),
+  worldPoint: () => ({ ok: true, pos: randomPos() }),
+
+  setActive: ({ id, active }: { id: number; active: boolean }) => {
+    const row = rows.find((r) => r.meta.id === id)
+    if (!row || row.meta.type !== 'ambience') return { ok: false, error: 'not_ambience' }
+    row.meta = { ...row.meta, active }
+    store(rows)
+    return { ok: true, active }
+  },
+
   preview: () => {
     window.postMessage({ action: 'preview', data: { active: true } }, '*')
     setTimeout(() => window.postMessage({ action: 'preview', data: { active: false } }, '*'), 1500)
@@ -136,7 +149,7 @@ const handlers: Record<string, (data: any) => unknown> = {
   },
 
   exit: () => {
-    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE } }, '*'), 800)
+    setTimeout(() => window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60 } }, '*'), 800)
     return { ok: true }
   },
 }
@@ -149,5 +162,5 @@ export async function mockNui<T>(event: string, data: unknown): Promise<T> {
 
 /** Simula que el cliente abre el editor al cargar la página. */
 export function bootMock() {
-  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE } }, '*')
+  window.postMessage({ action: 'open', data: { studios: { 1: { label: 'Studio 1', maxEntities: 300 } }, defaultStudio: 1, locale: LOCALE, presets: PRESETS, maxPedsPerAmbience: 60 } }, '*')
 }

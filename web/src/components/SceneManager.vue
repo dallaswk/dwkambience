@@ -106,6 +106,13 @@ async function remove(row: SceneRow) {
                 <template v-if="row.lockedBy"> · <Icon name="lock" :size="11" /> {{ row.lockedBy }}</template>
               </div>
             </div>
+            <button
+              v-if="row.type === 'ambience'"
+              class="pill"
+              :class="{ on: row.active }"
+              :title="t('ambienceActive')"
+              @click.stop="editor.setActive(row.id, !row.active)"
+            >{{ row.active ? t('on') : t('off') }}</button>
             <button class="btn icon ghost danger del" :title="t('delete')" @click.stop="remove(row)">
               <Icon name="trash" :size="14" />
             </button>
@@ -185,6 +192,18 @@ async function remove(row: SceneRow) {
 .row-main { flex: 1; min-width: 0; }
 .row-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-meta { font-size: var(--fs-xs); display: flex; align-items: center; gap: 3px; }
+.pill {
+  border: none;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.pill.on { background: var(--accent-soft); color: var(--accent); }
 .del { opacity: 0; }
 .row:hover .del { opacity: 1; }
 </style>

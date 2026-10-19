@@ -13,7 +13,8 @@ import Viewport from './components/Viewport.vue'
 import { t } from './i18n'
 import { bootMock } from './mocks'
 import { fetchNui, inGame, onNuiMessage } from './nui'
-import { handlePlayback } from './playback'
+import { handleAudio3D, type Audio3DMessage } from './audio3d'
+import { handleMusic, type MusicMessage } from './music'
 import { useConfirm } from './stores/confirm'
 import { useEditor } from './stores/editor'
 import { useTimeline } from './stores/timeline'
@@ -97,11 +98,12 @@ let stop: (() => void) | undefined
 
 onMounted(() => {
   stop = onNuiMessage(({ action, data }) => {
-    if (action === 'open') editor.show(data as { studios: unknown; locale?: unknown })
+    if (action === 'open') editor.show(data as Parameters<typeof editor.show>[0])
     else if (action === 'close') editor.hide()
     else if (action === 'gizmo') editor.onGizmo(data as Parameters<typeof editor.onGizmo>[0])
     else if (action === 'preview') editor.onPreview(data as { active: boolean })
-    else if (action === 'playback') handlePlayback(data as Parameters<typeof handlePlayback>[0])
+    else if (action === 'music') handleMusic(data as MusicMessage)
+    else if (action === 'audio3d') handleAudio3D(data as Audio3DMessage)
   })
   document.addEventListener('focusin', onFocusIn)
   document.addEventListener('focusout', onFocusOut)

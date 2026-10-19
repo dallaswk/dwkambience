@@ -4,7 +4,7 @@ import type {
   AnyClip, AnyKey, Channel, EntityKind, Key, SceneData, SceneEntity, SceneType, Track, Vec3,
 } from './types'
 
-export const SCHEMA = 2
+export const SCHEMA = 3
 
 /** Targets que no son entidades (igual que Scene.RESERVED_TARGETS en Lua) */
 export const CAMERA = 'camera'
@@ -48,6 +48,7 @@ export function newScene(type: SceneType): SceneData {
       active: false,
       schedule: null,
       trigger: null,
+      timecycle: null,
     },
     entities: [],
     tracks: [],
@@ -76,6 +77,7 @@ export function normalizeScene(raw: unknown, type: SceneType): SceneData {
       output: { ...base.settings.output, ...(isObject(settings.output) ? settings.output : {}) },
       schedule: isObject(settings.schedule) ? (settings.schedule as SceneData['settings']['schedule']) : null,
       trigger: isObject(settings.trigger) ? (settings.trigger as SceneData['settings']['trigger']) : null,
+      timecycle: isObject(settings.timecycle) ? (settings.timecycle as SceneData['settings']['timecycle']) : null,
     },
     entities: asArray<SceneEntity>(raw.entities).map((e) => ({
       ...e,
@@ -210,6 +212,21 @@ export function keyTimes(scene: SceneData): number[] {
     for (const c of tr.clips ?? []) set.add(c.start)
   }
   return [...set].sort((a, b) => a - b)
+}
+
+/** Entidades de juego que representa (una multitud cuenta tantas como personas), igual que en Lua */
+export function entityWeight(entity: SceneEntity) {
+  if (entity.kind === 'crowd') return entity.crowd?.count ?? 0
+  if (entity.kind === 'sound') return 0
+  return 1
+}
+
+export function sceneWeight(scene: SceneData) {
+  return scene.entities.reduce((sum, e) => sum + entityWeight(e), 0)
+}
+
+export function scenePeds(scene: SceneData) {
+  return scene.entities.reduce((sum, e) => sum + (e.kind === 'ped' || e.kind === 'crowd' ? entityWeight(e) : 0), 0)
 }
 
 export function sceneStats(scene: SceneData) {
